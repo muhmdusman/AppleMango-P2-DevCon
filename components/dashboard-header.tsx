@@ -1,5 +1,6 @@
 /* ============================================================
    Dashboard top header bar with search, notifications, user menu
+   Includes hamburger menu for mobile via MobileSidebar
    ============================================================ */
 "use client";
 
@@ -17,6 +18,7 @@ import {
 import { useEffect, useState } from "react";
 import { signOut } from "@/app/actions/auth";
 import Link from "next/link";
+import { MobileSidebar } from "@/components/mobile-sidebar";
 
 export function DashboardHeader({
   userEmail,
@@ -43,19 +45,25 @@ export function DashboardHeader({
   const initials = userEmail ? userEmail.slice(0, 2).toUpperCase() : "U";
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-border bg-card px-6">
+    <header className="flex h-14 md:h-16 items-center justify-between border-b border-border bg-card px-3 md:px-6 gap-2 md:gap-4">
+      {/* Hamburger menu — mobile only */}
+      <MobileSidebar />
+
       {/* Search bar */}
-      <div className="relative w-full max-w-sm">
+      <div className="relative flex-1 max-w-sm hidden sm:block">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="Search surgeries, patients, staff..."
+          placeholder="Search..."
           className="pl-9 bg-muted/50 border-0"
         />
       </div>
 
-      <div className="flex items-center gap-3">
+      {/* Spacer on mobile to push items right */}
+      <div className="flex-1 sm:hidden" />
+
+      <div className="flex items-center gap-1.5 md:gap-3 shrink-0">
         {/* Online/Offline indicator */}
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <div className="hidden md:flex items-center gap-1.5 text-xs text-muted-foreground">
           {online ? (
             <><Wifi className="h-3.5 w-3.5 text-green-500" /> Online</>
           ) : (

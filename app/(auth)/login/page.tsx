@@ -3,7 +3,7 @@ import LoginForm from "./login-form"
 
 export const metadata: Metadata = {
   title: "Sign In — MedScheduler",
-  description: "Sign in to the Hospital Operating Room Scheduling System",
+  description: "Sign in to MedScheduler",
 }
 
 export default function LoginPage() {

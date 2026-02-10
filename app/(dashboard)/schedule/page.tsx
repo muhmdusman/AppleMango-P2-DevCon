@@ -24,7 +24,6 @@ export default async function SchedulePage({
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">OR Schedule</h1>
-        <p className="text-sm text-muted-foreground">Drag-and-drop interactive operating room schedule</p>
       </div>
       <ScheduleView
         rooms={rooms}

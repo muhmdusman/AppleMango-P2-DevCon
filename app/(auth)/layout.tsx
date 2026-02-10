@@ -2,7 +2,7 @@ import type { ReactNode } from "react"
 
 export const metadata = {
   title: "MedScheduler — Authentication",
-  description: "Sign in to the Hospital OR Scheduling System",
+  description: "Sign in to MedScheduler",
 }
 
 export default function AuthLayout({ children }: { children: ReactNode }) {

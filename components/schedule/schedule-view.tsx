@@ -112,7 +112,7 @@ export function ScheduleView({ rooms, slots, unscheduledSurgeries, selectedDate,
         {/* Gantt Chart */}
         <Card className="border-0 shadow-sm overflow-hidden">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold">OR Timeline — {selectedDate}</CardTitle>
+            <CardTitle className="text-base font-semibold">OR Timeline</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -218,7 +218,7 @@ export function ScheduleView({ rooms, slots, unscheduledSurgeries, selectedDate,
           </CardHeader>
           <CardContent className="space-y-2 max-h-[500px] overflow-y-auto">
             {unscheduledSurgeries.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">All surgeries scheduled</p>
+              <p className="text-sm text-muted-foreground text-center py-4">No pending surgeries</p>
             ) : (
               unscheduledSurgeries.map(s => (
                 <div

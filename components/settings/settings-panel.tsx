@@ -52,7 +52,7 @@ export function SettingsPanel({ userEmail, hospitals }: Props) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium">Biometric Login</p>
-              <p className="text-xs text-muted-foreground">WebAuthn fingerprint/face</p>
+              <p className="text-xs text-muted-foreground">Fingerprint or Face ID</p>
             </div>
             <Badge variant="secondary" className="bg-green-100 text-green-700">Active</Badge>
           </div>
@@ -70,7 +70,7 @@ export function SettingsPanel({ userEmail, hospitals }: Props) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium">Two-Factor Auth</p>
-              <p className="text-xs text-muted-foreground">WebAuthn + password</p>
+              <p className="text-xs text-muted-foreground">Biometric verification + password</p>
             </div>
             <Switch defaultChecked />
           </div>
@@ -78,7 +78,7 @@ export function SettingsPanel({ userEmail, hospitals }: Props) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium">Offline Mode</p>
-              <p className="text-xs text-muted-foreground">IndexedDB encrypted caching</p>
+              <p className="text-xs text-muted-foreground">Encrypted local storage</p>
             </div>
             <Switch defaultChecked />
           </div>
@@ -86,7 +86,7 @@ export function SettingsPanel({ userEmail, hospitals }: Props) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium">Real-time Notifications</p>
-              <p className="text-xs text-muted-foreground">WebSocket live updates</p>
+              <p className="text-xs text-muted-foreground">Push notifications</p>
             </div>
             <Switch defaultChecked />
           </div>
@@ -102,7 +102,7 @@ export function SettingsPanel({ userEmail, hospitals }: Props) {
         </CardHeader>
         <CardContent className="space-y-3">
           {hospitals.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No hospitals configured</p>
+            <p className="text-sm text-muted-foreground">No hospitals linked to your account</p>
           ) : (
             hospitals.map(h => (
               <div key={h.id} className="rounded-lg border p-3">
@@ -124,10 +124,10 @@ export function SettingsPanel({ userEmail, hospitals }: Props) {
         </CardHeader>
         <CardContent className="space-y-4">
           <Button variant="outline" className="w-full" onClick={handleSeed} disabled={isPending}>
-            {isPending ? "Loading..." : "Load Demo Data"}
+            {isPending ? "Loading..." : "Initialize Sample Data"}
           </Button>
           <p className="text-xs text-muted-foreground">
-            Creates sample hospital, ORs, staff, equipment, and surgeries for testing.
+            Populate your workspace with sample hospitals, rooms, staff, and equipment.
           </p>
         </CardContent>
       </Card>

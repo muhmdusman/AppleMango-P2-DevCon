@@ -18,7 +18,6 @@ export default async function PriorityQueuePage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Priority Queue</h1>
-        <p className="text-sm text-muted-foreground">Dynamic three-tier priority system with auto-escalation</p>
       </div>
       <PriorityQueueView
         emergency={emergency.data}

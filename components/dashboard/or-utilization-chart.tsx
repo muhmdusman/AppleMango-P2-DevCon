@@ -70,7 +70,7 @@ export function ORUtilizationChart({ rooms }: { rooms: OperatingRoom[] }) {
             <Bar data={data} options={options} />
           ) : (
             <p className="flex h-full items-center justify-center text-sm text-muted-foreground">
-              No operating rooms configured
+              No operating rooms available
             </p>
           )}
         </div>

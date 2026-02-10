@@ -27,13 +27,13 @@ export default async function DashboardLayout({
         <AppSidebar />
 
         {/* Main content area */}
-        <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex flex-1 min-w-0 flex-col overflow-hidden">
           <DashboardHeader
             userEmail={DEV_USER.email}
             notificationCount={notifCount}
           />
           <DevAuthBanner />
-          <main className="flex-1 overflow-y-auto p-6">
+          <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 md:p-6">
             {children}
           </main>
         </div>
@@ -60,12 +60,12 @@ export default async function DashboardLayout({
       <AppSidebar />
 
       {/* Main content area */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 min-w-0 flex-col overflow-hidden">
         <DashboardHeader
           userEmail={user.email}
           notificationCount={notifCount}
         />
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 md:p-6">
           {children}
         </main>
       </div>

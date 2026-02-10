@@ -31,7 +31,7 @@ export function RecentSurgeries({ surgeries }: { surgeries: Surgery[] }) {
       <CardContent>
         {surgeries.length === 0 ? (
           <p className="text-center text-sm text-muted-foreground py-8">
-            No surgeries found. Create your first surgery request.
+            No surgeries to display.
           </p>
         ) : (
           <div className="overflow-x-auto">

@@ -21,7 +21,6 @@ export default async function DashboardPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Real-time overview of OR scheduling and hospital operations</p>
       </div>
       <Suspense fallback={<div className="h-28 animate-pulse rounded-lg bg-muted" />}>
         <StatsCards stats={stats} />

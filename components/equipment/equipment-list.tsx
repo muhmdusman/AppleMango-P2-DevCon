@@ -201,7 +201,7 @@ export function EquipmentList({ equipment, hospitalId }: Props) {
       </div>
 
       {filtered.length === 0 && (
-        <p className="text-center text-sm text-muted-foreground py-12">No equipment found</p>
+        <p className="text-center text-sm text-muted-foreground py-12">No equipment to display</p>
       )}
     </div>
   );

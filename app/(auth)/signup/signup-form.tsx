@@ -109,7 +109,6 @@ export default function SignupForm() {
       }
 
       setError("")
-      alert("Biometric registered! Redirecting to dashboard...")
       goToDashboard()
     } catch {
       setError("Biometric registration failed. You can set it up later in settings.")
@@ -132,7 +131,7 @@ export default function SignupForm() {
             <svg className="h-8 w-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
           </div>
           <h1 className="text-2xl font-black text-[#1089d3]">Account Created!</h1>
-          <p className="mt-2 text-sm text-[#aaa]">Set up biometric login for faster access</p>
+          <p className="mt-2 text-sm text-[#aaa]">Enable biometric login for quick access</p>
         </div>
 
         {error && (
@@ -171,7 +170,7 @@ export default function SignupForm() {
       {/* Header */}
       <div className="mb-2 text-center">
         <h1 className="text-3xl font-black text-[#1089d3]">Sign Up</h1>
-        <p className="mt-1 text-sm text-[#aaa]">Create your MedScheduler account</p>
+        <p className="mt-1 text-sm text-[#aaa]">MedScheduler</p>
       </div>
 
       {/* Error */}

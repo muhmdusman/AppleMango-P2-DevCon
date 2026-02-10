@@ -36,7 +36,7 @@ export function AppSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="flex h-screen w-64 flex-col border-r border-sidebar-border bg-sidebar">
+    <aside className="hidden md:flex h-screen w-64 flex-col border-r border-sidebar-border bg-sidebar">
       {/* Brand header */}
       <div className="flex h-16 items-center gap-2 px-6">
         <Activity className="h-7 w-7 text-sidebar-primary" />

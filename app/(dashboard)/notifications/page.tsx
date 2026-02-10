@@ -13,7 +13,6 @@ export default async function NotificationsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Notifications</h1>
-        <p className="text-sm text-muted-foreground">Real-time alerts for emergencies, schedule changes, and equipment conflicts</p>
       </div>
       <NotificationsList notifications={notifications} hospitalId={hospitalId} />
     </div>

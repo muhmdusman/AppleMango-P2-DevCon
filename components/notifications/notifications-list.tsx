@@ -95,7 +95,7 @@ export function NotificationsList({ notifications, hospitalId }: Props) {
           <Card className="border-0 shadow-sm">
             <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
               <Bell className="h-8 w-8 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">No notifications</p>
+              <p className="text-sm text-muted-foreground">You're all caught up</p>
             </CardContent>
           </Card>
         ) : (

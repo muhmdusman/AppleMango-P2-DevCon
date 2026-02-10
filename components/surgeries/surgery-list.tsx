@@ -112,7 +112,7 @@ export function SurgeryList({ surgeries, totalCount, currentPage, hospitalId, su
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search patients or procedures..."
+            placeholder="Search..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -154,7 +154,7 @@ export function SurgeryList({ surgeries, totalCount, currentPage, hospitalId, su
             </DialogHeader>
             <form onSubmit={handleCreate} className="space-y-4">
               {/* Patient Info */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div><Label>Patient Name *</Label><Input name="patient_name" required /></div>
                 <div><Label>Age</Label><Input name="patient_age" type="number" /></div>
                 <div>
@@ -169,12 +169,12 @@ export function SurgeryList({ surgeries, totalCount, currentPage, hospitalId, su
               <div><Label>ASA Score (1-6)</Label><Input name="patient_asa_score" type="number" min={1} max={6} /></div>
 
               {/* Procedure Info */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div><Label>Procedure Name *</Label><Input name="procedure_name" required /></div>
-                <div><Label>Procedure Type</Label><Input name="procedure_type" placeholder="e.g., cardiac" /></div>
+                <div><Label>Procedure Type</Label><Input name="procedure_type" placeholder="Cardiac, ortho..." /></div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <Label>Complexity (1-5) *</Label>
                   <Select name="complexity" defaultValue="3"><SelectTrigger><SelectValue /></SelectTrigger>
@@ -257,7 +257,7 @@ export function SurgeryList({ surgeries, totalCount, currentPage, hospitalId, su
               </thead>
               <tbody>
                 {surgeries.length === 0 ? (
-                  <tr><td colSpan={8} className="p-8 text-center text-muted-foreground">No surgeries found</td></tr>
+                  <tr><td colSpan={8} className="p-8 text-center text-muted-foreground">No surgeries to display</td></tr>
                 ) : (
                   surgeries.map((s) => (
                     <tr key={s.id} className="border-b last:border-0 hover:bg-muted/30">

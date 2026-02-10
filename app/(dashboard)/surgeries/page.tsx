@@ -30,7 +30,6 @@ export default async function SurgeriesPage({
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Surgeries</h1>
-        <p className="text-sm text-muted-foreground">Manage surgery requests, approvals, and scheduling</p>
       </div>
       <Suspense fallback={<div className="h-96 animate-pulse rounded-lg bg-muted" />}>
         <SurgeryList

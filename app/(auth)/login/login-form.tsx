@@ -122,7 +122,7 @@ export default function LoginForm() {
       {/* Header */}
       <div className="mb-2 text-center">
         <h1 className="text-3xl font-black text-[#1089d3]">Sign In</h1>
-        <p className="mt-1 text-sm text-[#aaa]">Hospital OR Scheduling System</p>
+        <p className="mt-1 text-sm text-[#aaa]">MedScheduler</p>
       </div>
 
       {/* Error */}
@@ -187,11 +187,8 @@ export default function LoginForm() {
       {/* Biometric Separator */}
       <div className="mt-6">
         <span className="block text-center text-xs text-[#aaa]">
-          Or sign in with biometrics
+          Or continue with biometrics
         </span>
-        <p className="mt-1 text-center text-[10px] text-[#ccc]">
-          Register during sign up or in settings
-        </p>
 
         {/* Biometric Button */}
         <button
@@ -205,7 +202,7 @@ export default function LoginForm() {
         </button>
         {!email && (
           <p className="mt-2 text-center text-[10px] text-orange-400">
-            Enter your email above to use biometric login
+            Please enter your email first
           </p>
         )}
       </div>

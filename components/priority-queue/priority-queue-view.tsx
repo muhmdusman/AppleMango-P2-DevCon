@@ -88,7 +88,7 @@ function QueueColumn({
       </CardHeader>
       <CardContent className="space-y-2 max-h-[500px] overflow-y-auto">
         {activeSurgeries.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-6">No cases in queue</p>
+          <p className="text-sm text-muted-foreground text-center py-6">No active cases</p>
         ) : (
           activeSurgeries.map((s, idx) => {
             const waitHours = getWaitHours(s.created_at);

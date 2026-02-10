@@ -3,7 +3,7 @@ import SignupForm from "./signup-form"
 
 export const metadata: Metadata = {
   title: "Sign Up — MedScheduler",
-  description: "Create an account for the Hospital Operating Room Scheduling System",
+  description: "Create your MedScheduler account",
 }
 
 export default function SignupPage() {

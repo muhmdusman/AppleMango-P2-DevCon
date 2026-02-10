@@ -30,11 +30,10 @@ export function SeedDataBanner() {
           </div>
           <h2 className="text-xl font-bold">Welcome to MedScheduler</h2>
           <p className="text-sm text-muted-foreground">
-            No hospital data found. Load demo data to explore the system with
-            sample hospitals, operating rooms, staff, equipment, and surgeries.
+            No hospital data found. Initialize sample data to get started.
           </p>
           <Button onClick={handleSeed} disabled={isPending} className="mt-2">
-            {isPending ? "Loading..." : "Load Demo Data"}
+            {isPending ? "Loading..." : "Get Started"}
           </Button>
         </CardContent>
       </Card>
