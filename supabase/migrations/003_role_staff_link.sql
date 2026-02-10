@@ -1,7 +1,7 @@
--- ============================================================
+
 -- Migration 003: Link user profiles to staff + role-based views
 -- Auto-creates a staff record when a user signs up as surgeon/nurse/etc.
--- ============================================================
+
 
 -- Update handle_new_user to also create a staff link
 CREATE OR REPLACE FUNCTION public.handle_new_user()

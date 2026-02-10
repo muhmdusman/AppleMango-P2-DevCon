@@ -104,10 +104,20 @@ export default function LoginForm() {
         return
       }
 
-      // Step 4: Sign in with Supabase using the verified identity
-      // For WebAuthn, we sign in via a special token or password-less flow
-      // Since Supabase doesn't natively support WebAuthn, we use a workaround:
-      // The server has verified the identity, so we redirect
+      const verifyData = await verifyRes.json()
+
+      // Step 4: Exchange the magic link token for a real Supabase session
+      const supabase = createClient()
+      const { error: otpError } = await supabase.auth.verifyOtp({
+        token_hash: verifyData.token_hash,
+        type: "magiclink",
+      })
+
+      if (otpError) {
+        setError(otpError.message || "Session creation failed. Try password login.")
+        return
+      }
+
       router.push("/dashboard")
       router.refresh()
     } catch {

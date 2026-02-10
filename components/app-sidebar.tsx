@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { OfflineStatus } from "@/components/offline-status";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "manager", "surgeon", "scheduler", "nurse"] },
@@ -108,6 +109,13 @@ export function AppSidebar({ userRole, userName }: { userRole: string; userName:
           })}
         </nav>
       </ScrollArea>
+
+      <Separator />
+
+      {/* Offline status indicator */}
+      <div className="px-3 py-2">
+        <OfflineStatus />
+      </div>
 
       <Separator />
 

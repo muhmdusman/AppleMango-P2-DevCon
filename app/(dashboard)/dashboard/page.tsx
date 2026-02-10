@@ -1,6 +1,6 @@
 /* Dashboard — analytics overview with stats and charts */
 import { Suspense } from "react";
-import { getDashboardStats, getDefaultHospitalId, getSurgeries, getOperatingRooms } from "@/lib/data";
+import { getDashboardStats, getDefaultHospitalId, getSurgeries, getOperatingRooms, getScheduleSlots } from "@/lib/data";
 import { StatsCards } from "@/components/dashboard/stats-cards";
 import { RecentSurgeries } from "@/components/dashboard/recent-surgeries";
 import { ORUtilizationChart } from "@/components/dashboard/or-utilization-chart";
@@ -11,10 +11,13 @@ export default async function DashboardPage() {
   const hospitalId = await getDefaultHospitalId();
   if (!hospitalId) return <SeedDataBanner />;
 
-  const [stats, surgeriesRes, rooms] = await Promise.all([
+  const today = new Date().toISOString().split("T")[0];
+
+  const [stats, surgeriesRes, rooms, todaySlots] = await Promise.all([
     getDashboardStats(hospitalId),
     getSurgeries(hospitalId, { pageSize: 5 }),
     getOperatingRooms(hospitalId),
+    getScheduleSlots(hospitalId, today),
   ]);
 
   return (
@@ -28,7 +31,7 @@ export default async function DashboardPage() {
       </Suspense>
       <div className="grid gap-6 md:grid-cols-2">
         <Suspense fallback={<div className="h-72 animate-pulse rounded-lg bg-muted" />}>
-          <ORUtilizationChart rooms={rooms} />
+          <ORUtilizationChart rooms={rooms} slots={todaySlots} />
         </Suspense>
         <Suspense fallback={<div className="h-72 animate-pulse rounded-lg bg-muted" />}>
           <SurgeryDistributionChart stats={stats} />

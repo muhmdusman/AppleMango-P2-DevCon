@@ -46,11 +46,27 @@ interface Props {
   hospitalId: string;
 }
 
-export function ScheduleView({ rooms, slots, unscheduledSurgeries, selectedDate, hospitalId }: Props) {
+export function ScheduleView({ rooms, slots: serverSlots, unscheduledSurgeries: serverUnscheduled, selectedDate, hospitalId }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [dragSurgery, setDragSurgery] = useState<Surgery | null>(null);
   const [dragFromSlot, setDragFromSlot] = useState<string | null>(null);
+
+  // Optimistic local state for instant UI feedback
+  const [localSlots, setLocalSlots] = useState<ScheduleSlot[]>(serverSlots);
+  const [localUnscheduled, setLocalUnscheduled] = useState<Surgery[]>(serverUnscheduled);
+
+  // Sync server props into local state when they change (e.g. date navigation)
+  const [prevServerSlots, setPrevServerSlots] = useState(serverSlots);
+  const [prevServerUnscheduled, setPrevServerUnscheduled] = useState(serverUnscheduled);
+  if (serverSlots !== prevServerSlots) {
+    setPrevServerSlots(serverSlots);
+    setLocalSlots(serverSlots);
+  }
+  if (serverUnscheduled !== prevServerUnscheduled) {
+    setPrevServerUnscheduled(serverUnscheduled);
+    setLocalUnscheduled(serverUnscheduled);
+  }
 
   // Navigate between dates
   const changeDate = (offset: number) => {
@@ -61,7 +77,7 @@ export function ScheduleView({ rooms, slots, unscheduledSurgeries, selectedDate,
 
   // AI schedule quality score
   const scheduleScore = scoreScheduleQuality(
-    slots.filter(s => s.slot_type === "surgery").map(s => ({
+    localSlots.filter(s => s.slot_type === "surgery").map(s => ({
       start: new Date(s.start_time),
       end: new Date(s.end_time),
       priority: s.surgery?.priority ?? "elective",
@@ -73,7 +89,7 @@ export function ScheduleView({ rooms, slots, unscheduledSurgeries, selectedDate,
   // CSV export
   const exportCSV = () => {
     const headers = ["Surgery", "Patient", "OR", "Priority", "Start", "End", "Duration (min)", "Status"];
-    const rows = slots
+    const rows = localSlots
       .filter(s => s.slot_type === "surgery")
       .map(s => [
         s.surgery?.procedure_name ?? "",
@@ -97,6 +113,7 @@ export function ScheduleView({ rooms, slots, unscheduledSurgeries, selectedDate,
   };
 
   // Handle drop on a time slot (works for both new and re-dragged surgeries)
+  // OPTIMISTIC: update local state instantly, sync with server in background
   const handleDrop = useCallback((orId: string, hour: number) => {
     if (!dragSurgery) return;
 
@@ -106,8 +123,8 @@ export function ScheduleView({ rooms, slots, unscheduledSurgeries, selectedDate,
     // Check constraints before scheduling (exclude current slot if re-dragging)
     const or = rooms.find(r => r.id === orId);
     const filteredSlots = dragFromSlot
-      ? slots.filter(s => s.surgery_id !== dragSurgery.id)
-      : slots;
+      ? localSlots.filter(s => s.surgery_id !== dragSurgery.id)
+      : localSlots;
 
     if (or) {
       const result = checkConstraints(dragSurgery, or, start, end, filteredSlots);
@@ -120,18 +137,52 @@ export function ScheduleView({ rooms, slots, unscheduledSurgeries, selectedDate,
       }
     }
 
+    // Save previous state for rollback
+    const prevSlots = localSlots;
+    const prevUnscheduled = localUnscheduled;
+
+    // ── Optimistic update: immediately update the UI ──
+    const optimisticSlot: ScheduleSlot = {
+      id: `optimistic-${Date.now()}`,
+      or_id: orId,
+      surgery_id: dragSurgery.id,
+      slot_type: "surgery",
+      start_time: start.toISOString(),
+      end_time: end.toISOString(),
+      surgery: { ...dragSurgery, status: "scheduled" },
+      operating_room: or ?? null,
+    } as ScheduleSlot;
+
+    // Remove old slot if re-dragging, add new optimistic slot
+    setLocalSlots(prev => [
+      ...prev.filter(s => s.surgery_id !== dragSurgery.id),
+      optimisticSlot,
+    ]);
+
+    // Remove from unscheduled sidebar
+    setLocalUnscheduled(prev => prev.filter(s => s.id !== dragSurgery.id));
+
+    toast.success(`${dragFromSlot ? "Rescheduled" : "Scheduled"} ${dragSurgery.procedure_name} in ${or?.name}`);
+
+    // ── Background server sync ──
+    const surgeryRef = dragSurgery;
+    const fromSlotRef = dragFromSlot;
     startTransition(async () => {
-      const res = await scheduleSurgery(dragSurgery.id, orId, start.toISOString(), end.toISOString());
-      if (res.error) toast.error(res.error);
-      else {
-        toast.success(`${dragFromSlot ? "Rescheduled" : "Scheduled"} ${dragSurgery.procedure_name} in ${or?.name}`);
+      const res = await scheduleSurgery(surgeryRef.id, orId, start.toISOString(), end.toISOString());
+      if (res.error) {
+        // Rollback optimistic update on error
+        toast.error(`Server error: ${res.error} — reverting`);
+        setLocalSlots(prevSlots);
+        setLocalUnscheduled(prevUnscheduled);
+      } else {
+        // Refresh to get real slot IDs from server
         router.refresh();
       }
     });
 
     setDragSurgery(null);
     setDragFromSlot(null);
-  }, [dragSurgery, dragFromSlot, selectedDate, rooms, slots, router]);
+  }, [dragSurgery, dragFromSlot, selectedDate, rooms, localSlots, localUnscheduled, router]);
 
   return (
     <div className="space-y-4">
@@ -185,7 +236,7 @@ export function ScheduleView({ rooms, slots, unscheduledSurgeries, selectedDate,
             <div className="flex items-center justify-between">
               <CardTitle className="text-base font-semibold">OR Timeline — {selectedDate}</CardTitle>
               <span className="text-xs text-muted-foreground">
-                {slots.filter(s => s.slot_type === "surgery").length} surgeries • Disruption: {scheduleScore.disruptionProbability}%
+                {localSlots.filter(s => s.slot_type === "surgery").length} surgeries • Disruption: {scheduleScore.disruptionProbability}%
               </span>
             </div>
           </CardHeader>
@@ -204,7 +255,7 @@ export function ScheduleView({ rooms, slots, unscheduledSurgeries, selectedDate,
 
                 {/* OR Rows */}
                 {rooms.map(room => {
-                  const roomSlots = slots.filter(s => s.or_id === room.id);
+                  const roomSlots = localSlots.filter(s => s.or_id === room.id);
                   return (
                     <div
                       key={room.id}
@@ -302,13 +353,13 @@ export function ScheduleView({ rooms, slots, unscheduledSurgeries, selectedDate,
         {/* Unscheduled surgeries sidebar (drag source) */}
         <Card className="border-0 shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold">Unscheduled ({unscheduledSurgeries.length})</CardTitle>
+            <CardTitle className="text-base font-semibold">Unscheduled ({localUnscheduled.length})</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 max-h-[500px] overflow-y-auto">
-            {unscheduledSurgeries.length === 0 ? (
+            {localUnscheduled.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">All surgeries scheduled</p>
             ) : (
-              unscheduledSurgeries.map(s => (
+              localUnscheduled.map(s => (
                 <div
                   key={s.id}
                   draggable

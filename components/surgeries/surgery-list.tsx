@@ -41,6 +41,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, Search, ChevronLeft, ChevronRight, Check, X, Pencil, Trash2, Eye, Download } from "lucide-react";
 import type { Surgery, Staff } from "@/lib/types";
 import { createSurgery, approveSurgery, updateSurgery, deleteSurgery } from "@/app/actions/surgery";
+import { useOffline } from "@/components/providers/offline-provider";
 import { toast } from "sonner";
 
 /* CSV export helper */
@@ -100,6 +101,7 @@ export function SurgeryList({ surgeries, totalCount, currentPage, hospitalId, su
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [selectedSurgery, setSelectedSurgery] = useState<Surgery | null>(null);
   const [searchInput, setSearchInput] = useState(filters.search ?? "");
+  const { isOnline, createSurgeryOffline } = useOffline();
 
   const totalPages = Math.ceil(totalCount / 20);
 
@@ -121,11 +123,36 @@ export function SurgeryList({ surgeries, totalCount, currentPage, hospitalId, su
   // Handle search
   const handleSearch = () => updateUrl({ search: searchInput || undefined, page: undefined });
 
-  // Handle create surgery form submission
+  // Handle create surgery form submission (online or offline)
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
     form.set("hospital_id", hospitalId);
+
+    if (!isOnline) {
+      // Offline mode: queue surgery locally
+      const offlineData: Record<string, unknown> = {
+        hospital_id: hospitalId,
+        patient_name: form.get("patient_name"),
+        patient_age: parseInt(form.get("patient_age") as string) || null,
+        patient_gender: form.get("patient_gender") || null,
+        patient_bmi: parseFloat(form.get("patient_bmi") as string) || null,
+        patient_asa_score: parseInt(form.get("patient_asa_score") as string) || null,
+        procedure_name: form.get("procedure_name"),
+        procedure_type: form.get("procedure_type") || null,
+        complexity: parseInt(form.get("complexity") as string) || 3,
+        priority: form.get("priority") || "elective",
+        specialization_required: form.get("specialization_required") || null,
+        estimated_duration: parseInt(form.get("estimated_duration") as string) || 60,
+        anesthesia_type: form.get("anesthesia_type") || "general",
+        pre_op_requirements: form.get("pre_op_requirements") || null,
+        post_op_requirements: form.get("post_op_requirements") || null,
+        surgeon_id: form.get("surgeon_id") || null,
+      };
+      await createSurgeryOffline(offlineData);
+      setDialogOpen(false);
+      return;
+    }
 
     startTransition(async () => {
       const result = await createSurgery(form);

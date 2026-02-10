@@ -84,8 +84,8 @@ export async function createSurgery(formData: FormData) {
     pre_op_requirements: formData.get("pre_op_requirements") || null,
     post_op_requirements: formData.get("post_op_requirements") || null,
     surgeon_id: formData.get("surgeon_id") || null,
-    status: "pending",
-    approval_status: "pending",
+    status: "approved",
+    approval_status: "approved",
     created_by: user.id,
   });
 
@@ -103,6 +103,7 @@ export async function createSurgery(formData: FormData) {
 
   revalidatePath("/surgeries");
   revalidatePath("/dashboard");
+  revalidatePath("/schedule");
   revalidatePath("/notifications");
   return { success: true, predictedDuration: prediction.predicted };
 }
@@ -150,6 +151,7 @@ export async function updateSurgery(id: string, formData: FormData) {
   if (error) return { error: error.message };
   revalidatePath("/surgeries");
   revalidatePath("/dashboard");
+  revalidatePath("/schedule");
   return { success: true, predictedDuration: prediction.predicted };
 }
 
@@ -406,24 +408,33 @@ export async function seedDemoData() {
 
   const roomIds = roomsInserted?.map(r => r.id) ?? [];
 
-  // ── Create Staff (25 realistic Pakistani medical professionals) ──
-  const pakistaniFirstNames = ["Ahmed", "Muhammad", "Ali", "Hassan", "Bilal", "Usman", "Saad", "Farhan", "Kamran", "Waqas", "Sana", "Fatima", "Ayesha", "Nadia", "Hira", "Maryam", "Rabia", "Zainab", "Asma", "Noor"];
-  const pakistaniLastNames = ["Khan", "Malik", "Zaidi", "Tariq", "Shah", "Qureshi", "Akhtar", "Haider", "Hussain", "Mehmood", "Raza", "Butt", "Chaudhry", "Siddiqui", "Nawaz"];
+  // ── Create Staff (30 realistic Pakistani medical professionals) ──
+  const pakistaniFirstNames = ["Ahmed", "Muhammad", "Ali", "Hassan", "Bilal", "Usman", "Saad", "Farhan", "Kamran", "Waqas", "Sana", "Fatima", "Ayesha", "Nadia", "Hira", "Maryam", "Rabia", "Zainab", "Asma", "Noor", "Omar", "Imran", "Tariq", "Rehan"];
+  const pakistaniLastNames = ["Khan", "Malik", "Zaidi", "Tariq", "Shah", "Qureshi", "Akhtar", "Haider", "Hussain", "Mehmood", "Raza", "Butt", "Chaudhry", "Siddiqui", "Nawaz", "Mirza", "Sheikh", "Abbasi"];
   const specializations = ["general", "cardiac", "neuro", "orthopedic", "ent"];
 
-  function pkName() { return `${faker.helpers.arrayElement(pakistaniFirstNames)} ${faker.helpers.arrayElement(pakistaniLastNames)}`; }
+  // Track used names to avoid duplicates
+  const usedStaffNames = new Set<string>();
+  function pkName() {
+    let name: string;
+    do {
+      name = `${faker.helpers.arrayElement(pakistaniFirstNames)} ${faker.helpers.arrayElement(pakistaniLastNames)}`;
+    } while (usedStaffNames.has(name));
+    usedStaffNames.add(name);
+    return name;
+  }
 
   const staffData: Record<string, unknown>[] = [];
-  // 8 surgeons
-  for (let i = 0; i < 8; i++) {
+  // 10 surgeons
+  for (let i = 0; i < 10; i++) {
     staffData.push({ hospital_id: hId, full_name: `Dr. ${pkName()}`, role: "surgeon", specialization: specializations[i % specializations.length], email: faker.internet.email().toLowerCase(), max_hours_per_day: faker.helpers.arrayElement([10, 12]) });
   }
-  // 4 anesthesiologists
-  for (let i = 0; i < 4; i++) {
+  // 5 anesthesiologists
+  for (let i = 0; i < 5; i++) {
     staffData.push({ hospital_id: hId, full_name: `Dr. ${pkName()}`, role: "anesthesiologist", specialization: specializations[i % specializations.length], email: faker.internet.email().toLowerCase(), max_hours_per_day: faker.helpers.arrayElement([10, 12]) });
   }
-  // 8 nurses
-  for (let i = 0; i < 8; i++) {
+  // 10 nurses
+  for (let i = 0; i < 10; i++) {
     staffData.push({ hospital_id: hId, full_name: `Nurse ${pkName()}`, role: "nurse", email: faker.internet.email().toLowerCase(), max_hours_per_day: 8 });
   }
   // 2 OR managers
@@ -478,6 +489,28 @@ export async function seedDemoData() {
   const anesthesiaTypes = ["general", "regional", "local", "sedation"];
   const genders = ["male", "female"];
 
+  // ── Pre-generate 60 unique patients ──
+  const usedPatientNames = new Set<string>();
+  interface PatientProfile { name: string; age: number; gender: string; bmi: number; asa: number; comorbidities: string[] }
+  const patientPool: PatientProfile[] = [];
+  const comorbidityList = ["Diabetes", "Hypertension", "CAD", "COPD", "Obesity", "CKD", "Asthma", "Anemia", "Hypothyroid", "DVT History"];
+  for (let i = 0; i < 60; i++) {
+    let pName: string;
+    do {
+      pName = `${faker.helpers.arrayElement(pakistaniFirstNames)} ${faker.helpers.arrayElement(pakistaniLastNames)}`;
+    } while (usedPatientNames.has(pName));
+    usedPatientNames.add(pName);
+    patientPool.push({
+      name: pName,
+      age: faker.number.int({ min: 18, max: 85 }),
+      gender: faker.helpers.arrayElement(genders),
+      bmi: parseFloat(faker.number.float({ min: 18.5, max: 40, fractionDigits: 1 }).toFixed(1)),
+      asa: faker.helpers.arrayElement([1, 2, 3, 4]),
+      comorbidities: faker.helpers.arrayElements(comorbidityList, faker.number.int({ min: 0, max: 3 })),
+    });
+  }
+  function randomPatient() { return faker.helpers.arrayElement(patientPool); }
+
   const allSurgeries: Record<string, unknown>[] = [];
 
   // Helper: pick random ICD-10 procedure
@@ -486,9 +519,8 @@ export async function seedDemoData() {
   // --- 8 Emergencies (2 in_progress, 3 approved, 3 pending) ---
   for (let i = 0; i < 8; i++) {
     const proc = randomProcedure();
+    const pat = randomPatient();
     const status = i < 2 ? "in_progress" : i < 5 ? "approved" : "pending";
-    const age = faker.number.int({ min: 18, max: 85 });
-    const bmi = parseFloat(faker.number.float({ min: 18.5, max: 40, fractionDigits: 1 }).toFixed(1));
     const asa = faker.helpers.arrayElement([3, 4, 5]);
     const duration = proc.avgDuration + faker.number.int({ min: -20, max: 60 });
     const predicted = Math.round(duration * (1 + proc.complexity * 0.08));
@@ -496,15 +528,15 @@ export async function seedDemoData() {
     const scheduledEnd = scheduledStart ? new Date(new Date(scheduledStart).getTime() + duration * 60000).toISOString() : undefined;
 
     allSurgeries.push({
-      hospital_id: hId, patient_name: pkName(), patient_age: age, patient_gender: faker.helpers.arrayElement(genders),
-      patient_bmi: bmi, patient_asa_score: asa, procedure_name: `Emergency ${proc.name}`, procedure_type: proc.category,
+      hospital_id: hId, patient_name: pat.name, patient_age: pat.age, patient_gender: pat.gender,
+      patient_bmi: pat.bmi, patient_asa_score: asa, procedure_name: `Emergency ${proc.name}`, procedure_type: proc.category,
       complexity: Math.min(5, proc.complexity + 1), priority: "emergency", specialization_required: proc.specialization,
       estimated_duration: duration, predicted_duration: predicted, anesthesia_type: "general",
       status, approval_status: status === "pending" ? "pending" : "approved",
       surgeon_id: faker.helpers.arrayElement(surgeonIds) ?? null,
       scheduled_start: scheduledStart, scheduled_end: scheduledEnd,
       pre_op_requirements: proc.preOp, post_op_requirements: proc.postOp,
-      patient_comorbidities: faker.helpers.arrayElements(["Diabetes", "Hypertension", "CAD", "COPD", "Obesity", "CKD"], faker.number.int({ min: 0, max: 3 })),
+      patient_comorbidities: pat.comorbidities,
       created_by: user.id,
       created_at: new Date(now.getTime() - faker.number.int({ min: 0, max: 6 }) * 3600000).toISOString(),
     });
@@ -513,10 +545,8 @@ export async function seedDemoData() {
   // --- 20 Urgent (5 scheduled today, 8 approved, 7 pending) ---
   for (let i = 0; i < 20; i++) {
     const proc = randomProcedure();
+    const pat = randomPatient();
     const status = i < 5 ? "scheduled" : i < 13 ? "approved" : "pending";
-    const age = faker.number.int({ min: 20, max: 80 });
-    const bmi = parseFloat(faker.number.float({ min: 18.5, max: 38, fractionDigits: 1 }).toFixed(1));
-    const asa = faker.helpers.arrayElement([2, 3, 4]);
     const duration = proc.avgDuration + faker.number.int({ min: -15, max: 45 });
     const predicted = Math.round(duration * (1 + proc.complexity * 0.06));
     const hour = 7 + (i % 12);
@@ -524,8 +554,8 @@ export async function seedDemoData() {
     const scheduledEnd = scheduledStart ? new Date(new Date(scheduledStart).getTime() + duration * 60000).toISOString() : undefined;
 
     allSurgeries.push({
-      hospital_id: hId, patient_name: pkName(), patient_age: age, patient_gender: faker.helpers.arrayElement(genders),
-      patient_bmi: bmi, patient_asa_score: asa, procedure_name: proc.name, procedure_type: proc.category,
+      hospital_id: hId, patient_name: pat.name, patient_age: pat.age, patient_gender: pat.gender,
+      patient_bmi: pat.bmi, patient_asa_score: faker.helpers.arrayElement([2, 3, 4]), procedure_name: proc.name, procedure_type: proc.category,
       complexity: proc.complexity, priority: "urgent", specialization_required: proc.specialization,
       estimated_duration: duration, predicted_duration: predicted, anesthesia_type: faker.helpers.arrayElement(anesthesiaTypes),
       status, approval_status: status === "pending" ? "pending" : "approved",
@@ -533,7 +563,7 @@ export async function seedDemoData() {
       scheduled_start: scheduledStart, scheduled_end: scheduledEnd,
       or_id: status === "scheduled" && roomIds.length > 0 ? roomIds[i % roomIds.length] : undefined,
       pre_op_requirements: proc.preOp, post_op_requirements: proc.postOp,
-      patient_comorbidities: faker.helpers.arrayElements(["Diabetes", "Hypertension", "Asthma", "Anemia"], faker.number.int({ min: 0, max: 2 })),
+      patient_comorbidities: pat.comorbidities,
       created_by: user.id,
       created_at: new Date(now.getTime() - faker.number.int({ min: 12, max: 96 }) * 3600000).toISOString(),
     });
@@ -542,15 +572,13 @@ export async function seedDemoData() {
   // --- 60 Elective (10 scheduled today, 15 approved, 20 pending, 15 completed) ---
   for (let i = 0; i < 60; i++) {
     const proc = randomProcedure();
+    const pat = randomPatient();
     let status: string;
     if (i < 10) status = "scheduled";
     else if (i < 25) status = "approved";
     else if (i < 45) status = "pending";
     else status = "completed";
 
-    const age = faker.number.int({ min: 18, max: 78 });
-    const bmi = parseFloat(faker.number.float({ min: 19, max: 36, fractionDigits: 1 }).toFixed(1));
-    const asa = faker.helpers.arrayElement([1, 2, 3]);
     const duration = proc.avgDuration + faker.number.int({ min: -10, max: 30 });
     const predicted = Math.round(duration * (1 + proc.complexity * 0.05));
     const hour = 7 + (i % 12);
@@ -563,8 +591,8 @@ export async function seedDemoData() {
     const actualDuration = status === "completed" ? duration + faker.number.int({ min: -12, max: 25 }) : undefined;
 
     allSurgeries.push({
-      hospital_id: hId, patient_name: pkName(), patient_age: age, patient_gender: faker.helpers.arrayElement(genders),
-      patient_bmi: bmi, patient_asa_score: asa, procedure_name: proc.name, procedure_type: proc.category,
+      hospital_id: hId, patient_name: pat.name, patient_age: pat.age, patient_gender: pat.gender,
+      patient_bmi: pat.bmi, patient_asa_score: faker.helpers.arrayElement([1, 2, 3]), procedure_name: proc.name, procedure_type: proc.category,
       complexity: proc.complexity, priority: "elective", specialization_required: proc.specialization,
       estimated_duration: duration, predicted_duration: predicted, actual_duration: actualDuration,
       anesthesia_type: faker.helpers.arrayElement(anesthesiaTypes),
@@ -575,7 +603,7 @@ export async function seedDemoData() {
       actual_start: actualStart, actual_end: actualEnd,
       or_id: (status === "scheduled" || status === "completed") && roomIds.length > 0 ? roomIds[i % roomIds.length] : undefined,
       pre_op_requirements: proc.preOp, post_op_requirements: proc.postOp,
-      patient_comorbidities: faker.helpers.arrayElements(["Diabetes", "Hypertension", "Asthma", "Obesity"], faker.number.int({ min: 0, max: 2 })),
+      patient_comorbidities: pat.comorbidities,
       created_by: user.id,
       created_at: new Date(now.getTime() - faker.number.int({ min: 24, max: 720 }) * 3600000).toISOString(),
     });
@@ -584,16 +612,15 @@ export async function seedDemoData() {
   // --- 30 more completed (historical) with today's actual_end to show on charts ---
   for (let i = 0; i < 30; i++) {
     const proc = randomProcedure();
-    const age = faker.number.int({ min: 20, max: 75 });
-    const bmi = parseFloat(faker.number.float({ min: 19, max: 34, fractionDigits: 1 }).toFixed(1));
+    const pat = randomPatient();
     const duration = proc.avgDuration + faker.number.int({ min: -10, max: 20 });
     const hoursAgo = faker.number.int({ min: 1, max: 14 });
     const aStart = new Date(now.getTime() - hoursAgo * 3600000).toISOString();
     const aEnd = new Date(new Date(aStart).getTime() + duration * 60000).toISOString();
 
     allSurgeries.push({
-      hospital_id: hId, patient_name: pkName(), patient_age: age, patient_gender: faker.helpers.arrayElement(genders),
-      patient_bmi: bmi, patient_asa_score: faker.helpers.arrayElement([1, 2, 3]), procedure_name: proc.name,
+      hospital_id: hId, patient_name: pat.name, patient_age: pat.age, patient_gender: pat.gender,
+      patient_bmi: pat.bmi, patient_asa_score: faker.helpers.arrayElement([1, 2, 3]), procedure_name: proc.name,
       procedure_type: proc.category, complexity: proc.complexity,
       priority: faker.helpers.weightedArrayElement([{ value: "elective", weight: 6 }, { value: "urgent", weight: 3 }, { value: "emergency", weight: 1 }]),
       specialization_required: proc.specialization, estimated_duration: duration,
