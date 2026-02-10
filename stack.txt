@@ -1,0 +1,42 @@
+Tech Stack
+Frontend
+
+Next.js (App Router) – routing, server actions, full-stack architecture
+
+Tailwind CSS – rapid UI development
+
+React DnD – drag-and-drop calendar scheduling
+
+Chart.js – analytics dashboard
+
+Backend & Database
+
+Supabase (PostgreSQL) – database & storage
+
+Supabase Auth – role-based authentication
+
+Supabase Realtime – live schedule updates
+
+Security
+
+WebAuthn (@simplewebauthn) – biometric fingerprint/face login
+
+Offline Support
+
+IndexedDB – local caching of medical records for offline access
+
+Deployment
+
+Vercel – hosting & CI/CD
+
+🤖 AI/ML Approach
+
+Instead of heavy ML training pipelines, lightweight heuristic and rule-based models were used to ensure real-time performance during the hackathon:
+
+Surgery Duration Prediction: complexity-based regression formula
+
+Schedule Optimization: greedy priority sorting
+
+Equipment Failure Prediction: usage threshold alerts
+
+These approaches are explainable, fast, and suitable for operational decision-making.

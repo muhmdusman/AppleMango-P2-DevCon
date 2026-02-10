@@ -1,0 +1,138 @@
+Problem Statement 2: Hospital Operating Room 
+Scheduler with Intelligent Conflict Resolution 
+Overview 
+Develop an intelligent OR scheduling system optimizing surgical facility utilization while 
+managing complex medical constraints, staff availability, and emergency cases, balancing 
+patient safety, resource optimization, and operational efficiency. 
+Problem Context 
+Hospitals face OR scheduling challenges with conflicting constraints: surgeon availability, 
+equipment sterilization, emergency interruptions, staff fatigue, and patient priorities. Poor 
+scheduling causes extended wait times, underutilized facilities, and staff burnout. 
+Core Requirements (75 Points) 
+1. Multi-Tenant Hospital Management Architecture (9 Points) 
+Multi-tenant system supporting multiple hospitals/facilities. Each manages independent ORs 
+(general, cardiac, neuro, orthopedic), surgical staff, equipment inventory, and patient queues. 
+Role-based access: Hospital Admin, OR Manager, Surgeon, Scheduler, Nurse. Cross-facility 
+resource sharing. 
+2. Comprehensive Surgery Request Management (10 Points) 
+Surgery request submission with patient demographics, procedure type, complexity level (1
+5), priority classification (Emergency, Urgent, Elective), required surgeon specialization, 
+equipment requirements, estimated duration, pre/post-op requirements, anesthesia type. 
+Approval workflow and bulk import capability. 
+3. Intelligent Constraint Satisfaction Scheduler (16 Points) 
+Constraint satisfaction algorithm handling hard constraints (surgeon specialization match, OR 
+capabilities match, equipment availability with sterilization, anesthesiologist availability, 
+pre/post-op room availability, no surgeon >12 hours/24 hours, mandatory breaks, equipment 
+sterilization cycles <3 hours apart) and soft constraints (minimize patient wait time, minimize 
+OR idle time, preferred surgeon, batch similar procedures, minimize overtime, respect 
+surgeon preferences). Real-time conflict detection, cascade rescheduling for emergencies, 
+explanations for delays, optimality scoring. 
+4. Priority Queue System with Dynamic Reordering (10 Points) 
+Three-tier priority: Emergency (within 2 hours), Urgent (24-48 hours), Elective (within 30 
+days). Automatic priority escalation based on wait time. Emergency override with automatic 
+rescheduling. Fair bumping algorithm. Waitlist management. Visual priority queue dashboard 
+with aging indicators. 
+© 2026 Software Society, Military College of Signals, NUST. All Rights Reserved.  
+5. Interactive Drag-and-Drop Calendar Interface (12 Points) 
+Multi-OR Gantt chart timeline (15-minute increments, 24-hour view). Drag-and-drop surgery 
+blocks with real-time conflict warnings (red), soft violations (yellow), automatic snap to valid 
+slots, visual indicators for setup/surgery/cleanup. Color coding: green (scheduled), yellow 
+(soft violations), red (hard violations), blue (emergency), grey (unavailable). Zoom/filter 
+controls by surgeon, procedure, priority. 
+6. Equipment & Resource Management (7 Points) 
+Equipment inventory tracking with surgical instrument sets, sterilization status, specialized 
+equipment, location tracking, sterilization cycle scheduling. Conflict detection when surgeries 
+need same equipment. Automatic alternative suggestions. Maintenance scheduling with OR 
+blocking. Utilization reports. 
+7. Real-Time Notification & Alert System (5 Points) 
+WebSocket real-time updates for new emergencies, schedule changes, equipment conflicts, 
+staff availability changes. Email/SMS for surgery scheduled/rescheduled, pre-op instructions, 
+reminders. In-app alert center for unresolved conflicts. Escalation alerts for overdue 
+surgeries. 
+8. Advanced Search, Filtering & Pagination (6 Points) 
+Complex search across surgeries (patient name, procedure, surgeon, date range, priority), 
+surgeons (specialization, availability, workload), equipment (type, availability, location), ORs 
+(capabilities, availability). Multi-column sorting. Efficient pagination for 10,000+ records. 
+Saved filter presets. CSV/Excel export. 
+9. Biometric Authentication & Security (Required) 
+WebAuthn implementation for passwordless login using fingerprint/face recognition. Support 
+platform authenticators (Touch ID, Face ID, Windows Hello). FIDO2 compliance. Session 
+management with JWT tokens. Audit trail for authentication attempts. 
+10. Offline-First Medical Records Access (Required) 
+IndexedDB implementation for offline patient data access. Sync when online using 
+Background Sync API. Conflict resolution for offline edits. Encrypted local storage (Web 
+Crypto API). Quota management for medical imaging files. 
+AI/ML Integration (20 Points) 
+1. Surgery Duration Prediction Model (12 Points) 
+ML regression model predicting actual surgery duration based on procedure type/complexity, 
+surgeon's historical performance, patient characteristics (age, BMI, comorbidities, ASA 
+score), time of day (fatigue), day of week, scheduled duration. Use Random Forest/Gradient 
+Boosting/Neural Network. Evaluation: MAE, RMSE. Feature importance analysis. Prediction 
+© 2026 Software Society, Military College of Signals, NUST. All Rights Reserved.  
+ © 2026 Software Society, Military College of Signals, NUST. All Rights Reserved.  
+confidence intervals. Continuous learning from completed surgeries. Auto-fill predicted 
+duration when scheduling. 
+2. Schedule Optimization Recommender (5 Points) 
+ML-based schedule quality scorer predicting disruption probability. Identify high-risk time 
+slots. Suggest optimal surgery sequences. Pattern recognition from successful vs. problematic 
+schedules. 
+3. Equipment Failure Prediction (3 Points) 
+Predictive maintenance based on usage history. Predict equipment failures before occurrence. 
+Proactive maintenance scheduling. Reduce unexpected unavailability. 
+Deployment & Production Readiness (5 Points) 
+Live deployment with HIPAA-compliant hosting considerations. SSL/HTTPS with TLS 1.3. 
+Database encryption (at rest and in transit). CORS configuration. Rate limiting. Automated 
+daily backups. Monitoring dashboard (uptime, error rates, API response times). Load testing 
+for 100+ concurrent users. Documentation. 
+Data Resources (Free/Public) 
+• Training data for ML: Use MIMIC-III Surgery dataset (free after registration) or 
+create synthetic surgery records using medical procedure taxonomies 
+• Medical procedures: Use ICD-10 procedure codes (free from CMS) 
+• Equipment data: Create from standard OR equipment catalogs 
+• Historical surgery data: Generate using medical data generators or Synthea Patient 
+Generator 
+• Surgeon/staff data: Use Faker.js with medical specializations 
+Scoring Breakdown 
+Category Points 
+Multi-Tenant Architecture 9 
+Surgery Request Management 10 
+Constraint Satisfaction Scheduler 16 
+Priority Queue System 10 
+Drag-and-Drop Calendar 12 
+Equipment Management 7 
+Notification System 5 
+Search & Pagination 6 
+AI: Duration Prediction 12 
+AI: Schedule Optimizer 5 
+AI: Equipment Failure 3 
+Deployment & Production 5 
+TOTAL 100 
+ 
+
+
+ Scope
+Implemented
+
+Multi-tenant hospital management
+
+Surgery request system
+
+Drag-drop OR scheduler
+
+Conflict detection
+
+Priority queue
+
+Equipment management
+
+Realtime notifications
+
+Dashboard analytics
+
+Biometric login
+
+Offline-first caching
+
+AI-assisted predictions
+
+Live deployment
