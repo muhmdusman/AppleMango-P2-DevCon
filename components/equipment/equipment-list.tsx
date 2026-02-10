@@ -17,11 +17,32 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { Plus, AlertTriangle, CheckCircle, Wrench, Droplets } from "lucide-react";
+import { Plus, AlertTriangle, CheckCircle, Wrench, Droplets, Download } from "lucide-react";
 import type { Equipment } from "@/lib/types";
 import { updateEquipmentStatus, createEquipment } from "@/app/actions/surgery";
 import { predictEquipmentFailure } from "@/lib/ai";
 import { toast } from "sonner";
+
+/* CSV export helper for equipment */
+function exportEquipmentCSV(equipment: Equipment[]) {
+  const headers = ["Name", "Type", "Status", "Location", "Usage Count", "Max Usage", "Usage %", "Last Sterilized", "Next Maintenance"];
+  const rows = equipment.map(e => [
+    e.name, e.equipment_type, e.status, e.location ?? "",
+    String(e.usage_count), String(e.max_usage_before_maintenance),
+    `${Math.round((e.usage_count / e.max_usage_before_maintenance) * 100)}%`,
+    e.last_sterilized ? new Date(e.last_sterilized).toLocaleString() : "",
+    e.next_maintenance ?? "",
+  ]);
+  const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `equipment-export-${new Date().toISOString().split("T")[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast.success("Equipment exported as CSV");
+}
 
 const statusIcons: Record<string, React.ReactNode> = {
   available: <CheckCircle className="h-4 w-4 text-green-500" />,
@@ -90,6 +111,10 @@ export function EquipmentList({ equipment, hospitalId }: Props) {
             <SelectItem value="maintenance">Maintenance</SelectItem>
           </SelectContent>
         </Select>
+
+        <Button variant="outline" size="sm" onClick={() => exportEquipmentCSV(filtered)}>
+          <Download className="h-3.5 w-3.5 mr-1" /> Export CSV
+        </Button>
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>

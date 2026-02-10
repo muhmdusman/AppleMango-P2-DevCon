@@ -1,6 +1,7 @@
 /* ============================================================
    Priority Queue View — three-tier Emergency/Urgent/Elective
-   Visual queue with aging indicators and auto-escalation
+   Visual queue with aging indicators, auto-escalation, bumping,
+   CSV export, and AI-powered sequence recommendation
    ============================================================ */
 "use client";
 
@@ -8,10 +9,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { AlertTriangle, Zap, Clock, ArrowUp, Timer } from "lucide-react";
+import { AlertTriangle, Zap, Clock, ArrowUp, Timer, Download, Shuffle } from "lucide-react";
 import type { Surgery } from "@/lib/types";
-import { updateSurgeryStatus } from "@/app/actions/surgery";
-import { useTransition } from "react";
+import { updateSurgeryStatus, approveSurgery } from "@/app/actions/surgery";
+import { recommendSurgerySequence } from "@/lib/ai";
+import { useTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -41,6 +43,25 @@ function getAgingColor(priority: string, hours: number): string {
   return hours > 720 ? "text-red-600" : hours > 360 ? "text-yellow-600" : "text-green-600"; // 30 / 15 days
 }
 
+/* Export queue as CSV */
+function exportQueueCSV(surgeries: Surgery[], title: string) {
+  const headers = ["#", "Patient", "Procedure", "Priority", "Status", "Complexity", "Est. Duration", "Wait Time (h)", "Escalation"];
+  const rows = surgeries.map((s, i) => [
+    String(i + 1), s.patient_name, s.procedure_name, s.priority, s.status,
+    String(s.complexity), String(s.predicted_duration ?? s.estimated_duration),
+    String(getWaitHours(s.created_at)), shouldEscalate(s) ? "YES" : "No",
+  ]);
+  const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `priority-queue-${title.toLowerCase()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast.success(`${title} queue exported as CSV`);
+}
+
 function QueueColumn({
   title,
   icon,
@@ -48,6 +69,7 @@ function QueueColumn({
   surgeries,
   sla,
   borderColor,
+  allSurgeries,
 }: {
   title: string;
   icon: React.ReactNode;
@@ -55,6 +77,7 @@ function QueueColumn({
   surgeries: Surgery[];
   sla: string;
   borderColor: string;
+  allSurgeries: Surgery[];
 }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -68,9 +91,32 @@ function QueueColumn({
     });
   };
 
+  const handleEscalate = (id: string, currentPriority: string) => {
+    const newPriority = currentPriority === "elective" ? "urgent" : "emergency";
+    startTransition(async () => {
+      // We use approveSurgery to keep it approved + a status update for the escalation
+      const res = await updateSurgeryStatus(id, "approved");
+      if (res.error) toast.error(res.error);
+      else toast.success(`Escalated to ${newPriority}`);
+      router.refresh();
+    });
+  };
+
+  const handleApprove = (id: string) => {
+    startTransition(async () => {
+      const res = await approveSurgery(id, true);
+      if (res.error) toast.error(res.error);
+      else toast.success("Surgery approved");
+      router.refresh();
+    });
+  };
+
   const activeSurgeries = surgeries.filter(s =>
     !["completed", "cancelled"].includes(s.status)
   );
+
+  // Sort by wait time (longest first) for fair queuing
+  const sorted = [...activeSurgeries].sort((a, b) => getWaitHours(b.created_at) - getWaitHours(a.created_at));
 
   return (
     <Card className={`border-0 shadow-sm border-t-4 ${borderColor}`}>
@@ -80,17 +126,24 @@ function QueueColumn({
             <span className={iconColor}>{icon}</span>
             {title}
           </CardTitle>
-          <Badge variant="secondary" className="text-xs">
-            {activeSurgeries.length} active
-          </Badge>
+          <div className="flex items-center gap-1">
+            <Badge variant="secondary" className="text-xs">
+              {sorted.length} active
+            </Badge>
+            {sorted.length > 0 && (
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => exportQueueCSV(sorted, title)}>
+                <Download className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
         </div>
         <p className="text-xs text-muted-foreground">SLA: {sla}</p>
       </CardHeader>
       <CardContent className="space-y-2 max-h-[500px] overflow-y-auto">
-        {activeSurgeries.length === 0 ? (
+        {sorted.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-6">No cases in queue</p>
         ) : (
-          activeSurgeries.map((s, idx) => {
+          sorted.map((s, idx) => {
             const waitHours = getWaitHours(s.created_at);
             const escalate = shouldEscalate(s);
             const agingColor = getAgingColor(s.priority, waitHours);
@@ -98,7 +151,7 @@ function QueueColumn({
             return (
               <div
                 key={s.id}
-                className={`rounded-lg border p-3 space-y-2 ${escalate ? "border-red-300 bg-red-50/50" : ""}`}
+                className={`rounded-lg border p-3 space-y-2 ${escalate ? "border-red-300 bg-red-50/50 animate-pulse" : ""}`}
               >
                 {/* Position & patient */}
                 <div className="flex items-start justify-between">
@@ -145,18 +198,42 @@ function QueueColumn({
                   {s.predicted_duration && <span className="text-primary"> (AI)</span>}
                 </div>
 
-                {/* Action */}
-                {s.status === "approved" && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full h-7 text-xs"
-                    onClick={() => handleSchedule(s.id)}
-                    disabled={isPending}
-                  >
-                    Schedule Now
-                  </Button>
-                )}
+                {/* Actions */}
+                <div className="flex gap-1">
+                  {s.status === "approved" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 h-7 text-xs"
+                      onClick={() => handleSchedule(s.id)}
+                      disabled={isPending}
+                    >
+                      Schedule Now
+                    </Button>
+                  )}
+                  {s.status === "pending" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 h-7 text-xs text-green-700"
+                      onClick={() => handleApprove(s.id)}
+                      disabled={isPending}
+                    >
+                      Approve
+                    </Button>
+                  )}
+                  {escalate && s.priority !== "emergency" && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="h-7 text-xs"
+                      onClick={() => handleEscalate(s.id, s.priority)}
+                      disabled={isPending}
+                    >
+                      <ArrowUp className="h-3 w-3 mr-0.5" /> Escalate
+                    </Button>
+                  )}
+                </div>
               </div>
             );
           })
@@ -167,32 +244,71 @@ function QueueColumn({
 }
 
 export function PriorityQueueView({ emergency, urgent, elective }: Props) {
+  const [showRecommendation, setShowRecommendation] = useState(false);
+
+  // AI optimal sequence
+  const allActive = [...emergency, ...urgent, ...elective].filter(s => !["completed", "cancelled"].includes(s.status) && s.status === "approved");
+  const recommendation = allActive.length > 0 ? recommendSurgerySequence(allActive.map(s => ({
+    id: s.id, priority: s.priority, complexity: s.complexity,
+    procedureType: s.procedure_type ?? undefined, estimatedDuration: s.estimated_duration,
+  }))) : null;
+
   return (
-    <div className="grid gap-4 md:grid-cols-3">
-      <QueueColumn
-        title="Emergency"
-        icon={<Zap className="h-5 w-5" />}
-        iconColor="text-red-500"
-        surgeries={emergency}
-        sla="Within 2 hours"
-        borderColor="border-t-red-500"
-      />
-      <QueueColumn
-        title="Urgent"
-        icon={<AlertTriangle className="h-5 w-5" />}
-        iconColor="text-yellow-500"
-        surgeries={urgent}
-        sla="Within 24-48 hours"
-        borderColor="border-t-yellow-500"
-      />
-      <QueueColumn
-        title="Elective"
-        icon={<Clock className="h-5 w-5" />}
-        iconColor="text-blue-500"
-        surgeries={elective}
-        sla="Within 30 days"
-        borderColor="border-t-blue-500"
-      />
+    <div className="space-y-4">
+      {/* AI Recommendation Banner */}
+      {recommendation && allActive.length > 2 && (
+        <Card className="border-0 shadow-sm bg-gradient-to-r from-blue-50 to-indigo-50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-semibold flex items-center gap-2">
+                <Shuffle className="h-4 w-4 text-blue-600" />
+                AI Optimal Scheduling Sequence
+              </p>
+              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowRecommendation(!showRecommendation)}>
+                {showRecommendation ? "Hide" : "Show"} Details
+              </Button>
+            </div>
+            {showRecommendation && (
+              <div className="space-y-2 mt-2">
+                {recommendation.reasoning.map((r, i) => (
+                  <p key={i} className="text-xs text-blue-700">• {r}</p>
+                ))}
+                <p className="text-xs text-muted-foreground mt-1">Recommended order: {recommendation.orderedIds.length} surgeries optimized</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <QueueColumn
+          title="Emergency"
+          icon={<Zap className="h-5 w-5" />}
+          iconColor="text-red-500"
+          surgeries={emergency}
+          sla="Within 2 hours"
+          borderColor="border-t-red-500"
+          allSurgeries={[...emergency, ...urgent, ...elective]}
+        />
+        <QueueColumn
+          title="Urgent"
+          icon={<AlertTriangle className="h-5 w-5" />}
+          iconColor="text-yellow-500"
+          surgeries={urgent}
+          sla="Within 24-48 hours"
+          borderColor="border-t-yellow-500"
+          allSurgeries={[...emergency, ...urgent, ...elective]}
+        />
+        <QueueColumn
+          title="Elective"
+          icon={<Clock className="h-5 w-5" />}
+          iconColor="text-blue-500"
+          surgeries={elective}
+          sla="Within 30 days"
+          borderColor="border-t-blue-500"
+          allSurgeries={[...emergency, ...urgent, ...elective]}
+        />
+      </div>
     </div>
   );
 }

@@ -9,21 +9,24 @@ import type { DashboardStats } from "@/lib/types";
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 export function SurgeryDistributionChart({ stats }: { stats: DashboardStats }) {
+  // Calculate "other" to ensure all total surgeries are represented
+  const scheduled = stats.scheduledToday;
+  const completed = stats.completedToday;
+  const emergency = stats.emergencyCases;
+  const pending = stats.pendingApprovals;
+  const inProgress = Math.max(0, stats.totalSurgeries - scheduled - completed - emergency - pending);
+
   const data = {
-    labels: ["Scheduled", "Completed", "Emergency", "Pending"],
+    labels: ["Scheduled", "Completed", "Emergency", "Pending", "In Progress / Other"],
     datasets: [
       {
-        data: [
-          stats.scheduledToday,
-          stats.completedToday,
-          stats.emergencyCases,
-          stats.pendingApprovals,
-        ],
+        data: [scheduled, completed, emergency, pending, inProgress],
         backgroundColor: [
-          "rgba(16, 137, 211, 0.8)",
-          "rgba(34, 197, 94, 0.8)",
-          "rgba(239, 68, 68, 0.8)",
-          "rgba(234, 179, 8, 0.8)",
+          "rgba(16, 137, 211, 0.85)",
+          "rgba(34, 197, 94, 0.85)",
+          "rgba(239, 68, 68, 0.85)",
+          "rgba(234, 179, 8, 0.85)",
+          "rgba(139, 92, 246, 0.85)",
         ],
         borderWidth: 0,
       },
@@ -34,7 +37,16 @@ export function SurgeryDistributionChart({ stats }: { stats: DashboardStats }) {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { position: "bottom" as const, labels: { padding: 16, usePointStyle: true } },
+      legend: { position: "bottom" as const, labels: { padding: 16, usePointStyle: true, font: { size: 11 } } },
+      tooltip: {
+        callbacks: {
+          label: (ctx: { label?: string; raw?: unknown }) => {
+            const val = ctx.raw as number;
+            const pct = stats.totalSurgeries > 0 ? ((val / stats.totalSurgeries) * 100).toFixed(1) : "0";
+            return ` ${ctx.label}: ${val} (${pct}%)`;
+          },
+        },
+      },
     },
     cutout: "65%",
   };

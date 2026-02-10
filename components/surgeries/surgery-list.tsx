@@ -38,10 +38,32 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, ChevronLeft, ChevronRight, Check, X, Pencil, Trash2, Eye } from "lucide-react";
+import { Plus, Search, ChevronLeft, ChevronRight, Check, X, Pencil, Trash2, Eye, Download } from "lucide-react";
 import type { Surgery, Staff } from "@/lib/types";
 import { createSurgery, approveSurgery, updateSurgery, deleteSurgery } from "@/app/actions/surgery";
 import { toast } from "sonner";
+
+/* CSV export helper */
+function exportSurgeriesCSV(surgeries: Surgery[]) {
+  const headers = ["Patient", "Age", "Gender", "Procedure", "Type", "Priority", "Status", "Complexity", "Est. Duration", "Predicted", "Actual", "Surgeon", "Anesthesia", "Scheduled Start", "Created"];
+  const rows = surgeries.map(s => [
+    s.patient_name, String(s.patient_age ?? ""), s.patient_gender ?? "", s.procedure_name,
+    s.procedure_type ?? "", s.priority, s.status, String(s.complexity),
+    String(s.estimated_duration), String(s.predicted_duration ?? ""), String(s.actual_duration ?? ""),
+    s.surgeon?.full_name ?? "", s.anesthesia_type,
+    s.scheduled_start ? new Date(s.scheduled_start).toLocaleString() : "",
+    new Date(s.created_at).toLocaleString(),
+  ]);
+  const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `surgeries-export-${new Date().toISOString().split("T")[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast.success("Surgeries exported as CSV");
+}
 
 const priorityColors: Record<string, string> = {
   emergency: "bg-red-100 text-red-700 border-red-200",
@@ -302,6 +324,10 @@ export function SurgeryList({ surgeries, totalCount, currentPage, hospitalId, su
             </DialogContent>
           </Dialog>
         )}
+
+        <Button variant="outline" size="sm" onClick={() => exportSurgeriesCSV(surgeries)}>
+          <Download className="h-3.5 w-3.5 mr-1" /> Export CSV
+        </Button>
       </div>
 
       {/* Edit Surgery Dialog */}

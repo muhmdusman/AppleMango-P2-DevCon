@@ -168,8 +168,7 @@ export async function getDashboardStats(hospitalId: string): Promise<DashboardSt
         .eq("hospital_id", hospitalId).eq("priority", "emergency")
         .in("status", ["pending", "approved", "scheduled", "in_progress"]),
       supabase.from("surgeries").select("*", { count: "exact", head: true })
-        .eq("hospital_id", hospitalId).eq("status", "completed")
-        .gte("actual_end", startOfDay),
+        .eq("hospital_id", hospitalId).eq("status", "completed"),
       supabase.from("surgeries").select("*", { count: "exact", head: true })
         .eq("hospital_id", hospitalId).eq("approval_status", "pending"),
       supabase.from("equipment").select("*", { count: "exact", head: true })

@@ -1,9 +1,9 @@
 /* ============================================================
-   Notifications List — filterable alert center
+   Notifications List — filterable alert center with auto-refresh
    ============================================================ */
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Bell, AlertTriangle, CheckCircle, Info, Zap, Check } from "lucide-react";
+import { Bell, AlertTriangle, CheckCircle, Info, Zap, Check, Download, RefreshCw } from "lucide-react";
 import type { Notification } from "@/lib/types";
 import { markNotificationRead, markAllNotificationsRead } from "@/app/actions/surgery";
 import { toast } from "sonner";
@@ -33,6 +33,23 @@ const typeBadgeColors: Record<string, string> = {
   emergency: "bg-red-100 text-red-700",
 };
 
+function exportNotificationsCSV(notifications: Notification[]) {
+  const headers = ["Title", "Message", "Type", "Category", "Read", "Created"];
+  const rows = notifications.map(n => [
+    n.title, n.message, n.type, n.category,
+    n.is_read ? "Yes" : "No", new Date(n.created_at).toLocaleString(),
+  ]);
+  const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `notifications-${new Date().toISOString().split("T")[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast.success("Notifications exported as CSV");
+}
+
 interface Props {
   notifications: Notification[];
   hospitalId: string;
@@ -42,6 +59,14 @@ export function NotificationsList({ notifications, hospitalId }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [filter, setFilter] = useState("all");
+
+  // Auto-refresh every 30 seconds for real-time feel
+  useEffect(() => {
+    const interval = setInterval(() => {
+      router.refresh();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [router]);
 
   const filtered = filter === "all"
     ? notifications
@@ -69,7 +94,7 @@ export function NotificationsList({ notifications, hospitalId }: Props) {
   return (
     <div className="space-y-4">
       {/* Toolbar */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3">
           <Select value={filter} onValueChange={setFilter}>
             <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
@@ -81,12 +106,20 @@ export function NotificationsList({ notifications, hospitalId }: Props) {
               <SelectItem value="info">Info</SelectItem>
             </SelectContent>
           </Select>
-        </div>
-        {unreadCount > 0 && (
-          <Button variant="outline" size="sm" onClick={handleMarkAllRead} disabled={isPending}>
-            <Check className="mr-2 h-3.5 w-3.5" /> Mark All Read
+          <Button variant="outline" size="sm" onClick={() => exportNotificationsCSV(filtered)}>
+            <Download className="h-3.5 w-3.5 mr-1" /> Export
           </Button>
-        )}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={() => router.refresh()} disabled={isPending} className="h-8 w-8">
+            <RefreshCw className={`h-3.5 w-3.5 ${isPending ? "animate-spin" : ""}`} />
+          </Button>
+          {unreadCount > 0 && (
+            <Button variant="outline" size="sm" onClick={handleMarkAllRead} disabled={isPending}>
+              <Check className="mr-2 h-3.5 w-3.5" /> Mark All Read
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Notification items */}

@@ -258,6 +258,9 @@ export async function scheduleSurgery(
 
   if (surgeryError) return { error: surgeryError.message };
 
+  // Delete old schedule slots for this surgery (enables re-scheduling / drag-drop)
+  await supabase.from("schedule_slots").delete().eq("surgery_id", surgeryId);
+
   // Create schedule slots (setup + surgery + cleanup)
   const start = new Date(startTime);
   const end = new Date(endTime);
@@ -360,7 +363,7 @@ export async function markAllNotificationsRead(hospitalId: string) {
   return { success: true };
 }
 
-// ── Seed Demo Data (comprehensive realistic data) ─────────
+// ── Seed Demo Data (comprehensive — 120+ surgeries via Faker) ──
 
 export async function seedDemoData() {
   const supabase = await createClient();
@@ -370,6 +373,10 @@ export async function seedDemoData() {
   // Check if hospital already exists
   const { data: existing } = await supabase.from("hospitals").select("id").limit(1);
   if (existing && existing.length > 0) return { success: true, hospitalId: existing[0].id };
+
+  // Dynamic import Faker + medical data
+  const { faker } = await import("@faker-js/faker");
+  const { ICD10_PROCEDURES, EQUIPMENT_CATALOG } = await import("@/lib/medical-data");
 
   // ── Create Hospital ──
   const { data: hospital, error: hospError } = await supabase
@@ -388,146 +395,283 @@ export async function seedDemoData() {
   const hId = hospital.id;
 
   // ── Create Operating Rooms (6 ORs per scope) ──
-  await supabase.from("operating_rooms").insert([
+  const { data: roomsInserted } = await supabase.from("operating_rooms").insert([
     { hospital_id: hId, name: "OR-1 General A", room_type: "general", status: "available", capabilities: ["general", "laparoscopic", "emergency"] },
     { hospital_id: hId, name: "OR-2 General B", room_type: "general", status: "occupied", capabilities: ["general", "bariatric", "trauma"] },
     { hospital_id: hId, name: "OR-3 Cardiac", room_type: "cardiac", status: "available", capabilities: ["cardiac", "vascular", "thoracic"] },
     { hospital_id: hId, name: "OR-4 Neuro", room_type: "neuro", status: "available", capabilities: ["neuro", "spine", "cranial"] },
     { hospital_id: hId, name: "OR-5 Orthopedic", room_type: "orthopedic", status: "available", capabilities: ["orthopedic", "trauma", "arthroplasty"] },
     { hospital_id: hId, name: "OR-6 ENT/Ophthalmic", room_type: "ent", status: "maintenance", capabilities: ["ent", "ophthalmic", "dental"] },
-  ]);
+  ]).select("id, name, room_type");
 
-  // ── Create Staff (realistic Pakistani medical professionals) ──
-  const staffData = [
-    // Surgeons
-    { hospital_id: hId, full_name: "Prof. Dr. Ahmed Raza Khan", role: "surgeon", specialization: "general", email: "ahmed.khan@pims.gov.pk", max_hours_per_day: 12 },
-    { hospital_id: hId, full_name: "Dr. Sana Fatima Zaidi", role: "surgeon", specialization: "cardiac", email: "sana.zaidi@pims.gov.pk", max_hours_per_day: 10 },
-    { hospital_id: hId, full_name: "Dr. Muhammad Usman Tariq", role: "surgeon", specialization: "neuro", email: "usman.tariq@pims.gov.pk", max_hours_per_day: 12 },
-    { hospital_id: hId, full_name: "Dr. Ayesha Malik", role: "surgeon", specialization: "orthopedic", email: "ayesha.malik@pims.gov.pk", max_hours_per_day: 10 },
-    { hospital_id: hId, full_name: "Dr. Hassan Ali Shah", role: "surgeon", specialization: "general", email: "hassan.shah@pims.gov.pk", max_hours_per_day: 12 },
-    // Anesthesiologists
-    { hospital_id: hId, full_name: "Dr. Fatima Noor", role: "anesthesiologist", specialization: "cardiac", email: "fatima.noor@pims.gov.pk", max_hours_per_day: 12 },
-    { hospital_id: hId, full_name: "Dr. Bilal Ahmed Qureshi", role: "anesthesiologist", specialization: "general", email: "bilal.qureshi@pims.gov.pk", max_hours_per_day: 10 },
-    // Nurses
-    { hospital_id: hId, full_name: "Nurse Rabia Akhtar", role: "nurse", email: "rabia.akhtar@pims.gov.pk", max_hours_per_day: 8 },
-    { hospital_id: hId, full_name: "Nurse Imran Haider", role: "nurse", email: "imran.haider@pims.gov.pk", max_hours_per_day: 8 },
-    { hospital_id: hId, full_name: "Nurse Zainab Bibi", role: "nurse", email: "zainab.bibi@pims.gov.pk", max_hours_per_day: 8 },
-    // OR Manager
-    { hospital_id: hId, full_name: "Dr. Nadia Hussain", role: "or_manager", email: "nadia.hussain@pims.gov.pk", max_hours_per_day: 10 },
-    // Scheduler
-    { hospital_id: hId, full_name: "Saad Mehmood", role: "scheduler", email: "saad.mehmood@pims.gov.pk", max_hours_per_day: 8 },
-  ];
+  const roomIds = roomsInserted?.map(r => r.id) ?? [];
 
-  // Link current user to staff if possible
-  const userRole = user.user_metadata?.role ?? "admin";
-  const staffRole = userRole === "admin" || userRole === "manager" ? "or_manager" : userRole;
-  staffData.push({
-    hospital_id: hId,
-    full_name: user.user_metadata?.full_name ?? user.email ?? "Admin User",
-    role: staffRole,
-    specialization: staffRole === "surgeon" ? "general" : undefined as unknown as string,
-    email: user.email ?? "",
-    max_hours_per_day: 12,
-  });
+  // ── Create Staff (25 realistic Pakistani medical professionals) ──
+  const pakistaniFirstNames = ["Ahmed", "Muhammad", "Ali", "Hassan", "Bilal", "Usman", "Saad", "Farhan", "Kamran", "Waqas", "Sana", "Fatima", "Ayesha", "Nadia", "Hira", "Maryam", "Rabia", "Zainab", "Asma", "Noor"];
+  const pakistaniLastNames = ["Khan", "Malik", "Zaidi", "Tariq", "Shah", "Qureshi", "Akhtar", "Haider", "Hussain", "Mehmood", "Raza", "Butt", "Chaudhry", "Siddiqui", "Nawaz"];
+  const specializations = ["general", "cardiac", "neuro", "orthopedic", "ent"];
+
+  function pkName() { return `${faker.helpers.arrayElement(pakistaniFirstNames)} ${faker.helpers.arrayElement(pakistaniLastNames)}`; }
+
+  const staffData: Record<string, unknown>[] = [];
+  // 8 surgeons
+  for (let i = 0; i < 8; i++) {
+    staffData.push({ hospital_id: hId, full_name: `Dr. ${pkName()}`, role: "surgeon", specialization: specializations[i % specializations.length], email: faker.internet.email().toLowerCase(), max_hours_per_day: faker.helpers.arrayElement([10, 12]) });
+  }
+  // 4 anesthesiologists
+  for (let i = 0; i < 4; i++) {
+    staffData.push({ hospital_id: hId, full_name: `Dr. ${pkName()}`, role: "anesthesiologist", specialization: specializations[i % specializations.length], email: faker.internet.email().toLowerCase(), max_hours_per_day: faker.helpers.arrayElement([10, 12]) });
+  }
+  // 8 nurses
+  for (let i = 0; i < 8; i++) {
+    staffData.push({ hospital_id: hId, full_name: `Nurse ${pkName()}`, role: "nurse", email: faker.internet.email().toLowerCase(), max_hours_per_day: 8 });
+  }
+  // 2 OR managers
+  staffData.push({ hospital_id: hId, full_name: `Dr. ${pkName()}`, role: "or_manager", email: faker.internet.email().toLowerCase(), max_hours_per_day: 10 });
+  staffData.push({ hospital_id: hId, full_name: `Dr. ${pkName()}`, role: "or_manager", email: faker.internet.email().toLowerCase(), max_hours_per_day: 10 });
+  // 3 schedulers
+  for (let i = 0; i < 3; i++) {
+    staffData.push({ hospital_id: hId, full_name: pkName(), role: "scheduler", email: faker.internet.email().toLowerCase(), max_hours_per_day: 8 });
+  }
+  // Current user
+  staffData.push({ hospital_id: hId, full_name: user.user_metadata?.full_name ?? user.email ?? "Admin User", role: "or_manager", email: user.email ?? "", max_hours_per_day: 12 });
 
   const { data: staffInserted } = await supabase.from("staff").insert(staffData).select("id, role, specialization");
-
   const surgeonIds = staffInserted?.filter(s => s.role === "surgeon").map(s => s.id) ?? [];
 
-  // ── Create Equipment (comprehensive inventory) ──
-  await supabase.from("equipment").insert([
-    // Surgical instruments
-    { hospital_id: hId, name: "General Surgical Set A", equipment_type: "instruments", status: "available", location: "Storage-1", usage_count: 47, max_usage_before_maintenance: 100 },
-    { hospital_id: hId, name: "General Surgical Set B", equipment_type: "instruments", status: "in_use", location: "OR-2", usage_count: 89, max_usage_before_maintenance: 100 },
-    { hospital_id: hId, name: "Laparoscopic Tower", equipment_type: "instruments", status: "available", location: "OR-1", usage_count: 62, max_usage_before_maintenance: 150 },
-    // Anesthesia
-    { hospital_id: hId, name: "Anesthesia Machine (Dräger Primus)", equipment_type: "anesthesia", status: "available", location: "OR-1", usage_count: 234, max_usage_before_maintenance: 500 },
-    { hospital_id: hId, name: "Anesthesia Machine (GE Aisys)", equipment_type: "anesthesia", status: "available", location: "OR-3", usage_count: 189, max_usage_before_maintenance: 500 },
-    // Cardiac
-    { hospital_id: hId, name: "Heart-Lung Bypass Machine", equipment_type: "cardiac", status: "available", location: "OR-3", usage_count: 28, max_usage_before_maintenance: 50 },
-    { hospital_id: hId, name: "Intra-Aortic Balloon Pump", equipment_type: "cardiac", status: "available", location: "OR-3", usage_count: 15, max_usage_before_maintenance: 80 },
-    // Neuro
-    { hospital_id: hId, name: "Surgical Microscope (Zeiss)", equipment_type: "neuro", status: "available", location: "OR-4", usage_count: 78, max_usage_before_maintenance: 200 },
-    { hospital_id: hId, name: "Neuronavigation System", equipment_type: "neuro", status: "sterilizing", location: "Sterilization", usage_count: 56, max_usage_before_maintenance: 100 },
-    // Imaging
-    { hospital_id: hId, name: "C-Arm Fluoroscopy (Siemens)", equipment_type: "imaging", status: "available", location: "OR-5", usage_count: 145, max_usage_before_maintenance: 300 },
-    { hospital_id: hId, name: "Portable Ultrasound", equipment_type: "imaging", status: "available", location: "Pre-Op", usage_count: 210, max_usage_before_maintenance: 400 },
-    // Monitoring
-    { hospital_id: hId, name: "Patient Monitor (Philips MX800)", equipment_type: "monitoring", status: "available", location: "OR-1", usage_count: 340, max_usage_before_maintenance: 600 },
-    { hospital_id: hId, name: "Electrocautery Unit (Valleylab)", equipment_type: "instruments", status: "sterilizing", location: "Sterilization", usage_count: 156, max_usage_before_maintenance: 200 },
-    { hospital_id: hId, name: "Defibrillator (Zoll)", equipment_type: "cardiac", status: "available", location: "Emergency", usage_count: 12, max_usage_before_maintenance: 100 },
-    { hospital_id: hId, name: "Power Drill (Stryker)", equipment_type: "instruments", status: "maintenance", location: "Maintenance", usage_count: 95, max_usage_before_maintenance: 100 },
-  ]);
+  // ── Create Equipment (40 items from ICD-10 equipment catalog) ──
+  const equipmentData: Record<string, unknown>[] = [];
+  const eqStatuses: string[] = ["available", "available", "available", "in_use", "sterilizing", "maintenance"];
+  const locations = ["OR-1", "OR-2", "OR-3", "OR-4", "OR-5", "OR-6", "Storage-1", "Storage-2", "Sterilization", "Pre-Op", "Emergency", "Maintenance"];
 
-  // ── Create Surgeries (realistic procedures with varied statuses) ──
+  for (const eq of EQUIPMENT_CATALOG) {
+    equipmentData.push({
+      hospital_id: hId,
+      name: eq.name,
+      equipment_type: eq.type,
+      status: faker.helpers.arrayElement(eqStatuses),
+      location: faker.helpers.arrayElement(eq.locations),
+      usage_count: faker.number.int({ min: 5, max: Math.floor(eq.maxUsage * 0.95) }),
+      max_usage_before_maintenance: eq.maxUsage,
+      notes: eq.name,
+    });
+  }
+  // Extra duplicates for common items
+  for (let i = 0; i < 12; i++) {
+    const eq = faker.helpers.arrayElement(EQUIPMENT_CATALOG);
+    equipmentData.push({
+      hospital_id: hId,
+      name: `${eq.name} #${i + 2}`,
+      equipment_type: eq.type,
+      status: faker.helpers.arrayElement(eqStatuses),
+      location: faker.helpers.arrayElement(eq.locations),
+      usage_count: faker.number.int({ min: 0, max: eq.maxUsage }),
+      max_usage_before_maintenance: eq.maxUsage,
+    });
+  }
+  await supabase.from("equipment").insert(equipmentData);
+
+  // ── Generate 120+ Surgeries using ICD-10 + Faker ──
   const now = new Date();
   const today = now.toISOString().split("T")[0];
+  const priorities: string[] = ["emergency", "urgent", "elective"];
+  const anesthesiaTypes = ["general", "regional", "local", "sedation"];
+  const genders = ["male", "female"];
 
-  const surgeries = [
-    // Emergency — already in progress
-    { hospital_id: hId, patient_name: "Zara Sheikh", patient_age: 58, patient_gender: "female", patient_bmi: 28.5, patient_asa_score: 4, procedure_name: "Emergency Coronary Artery Bypass Graft", procedure_type: "cardiac", complexity: 5, priority: "emergency", specialization_required: "cardiac", estimated_duration: 300, predicted_duration: 338, anesthesia_type: "general", status: "in_progress", approval_status: "approved", surgeon_id: surgeonIds[1] ?? null, scheduled_start: new Date(now.getTime() - 2 * 3600000).toISOString(), scheduled_end: new Date(now.getTime() + 3 * 3600000).toISOString(), pre_op_requirements: "ECG, Chest X-ray, Blood Cross-match 4 units, Echo", post_op_requirements: "ICU 48h, Cardiac Monitoring, Chest Drain", created_by: user.id },
-    // Emergency — pending
-    { hospital_id: hId, patient_name: "Kamran Iqbal", patient_age: 42, patient_gender: "male", patient_bmi: 31.2, patient_asa_score: 3, procedure_name: "Emergency Appendectomy (Perforated)", procedure_type: "general", complexity: 3, priority: "emergency", specialization_required: "general", estimated_duration: 90, predicted_duration: 102, anesthesia_type: "general", status: "approved", approval_status: "approved", pre_op_requirements: "CBC, X-ray Abdomen, NPO 6h", post_op_requirements: "IV Antibiotics 48h, Drain monitoring", created_by: user.id },
-    // Urgent — approved awaiting scheduling
-    { hospital_id: hId, patient_name: "Maryam Noor Butt", patient_age: 67, patient_gender: "female", patient_bmi: 24.1, patient_asa_score: 3, procedure_name: "Craniotomy for Meningioma", procedure_type: "neuro", complexity: 5, priority: "urgent", specialization_required: "neuro", estimated_duration: 240, predicted_duration: 278, anesthesia_type: "general", status: "approved", approval_status: "approved", surgeon_id: surgeonIds[2] ?? null, pre_op_requirements: "MRI Brain, CT Angiography, Dexamethasone", post_op_requirements: "Neuro ICU 72h, q1h Neuro checks", created_by: user.id },
-    // Urgent — scheduled for today
-    { hospital_id: hId, patient_name: "Ali Hassan Raza", patient_age: 35, patient_gender: "male", patient_bmi: 26.8, patient_asa_score: 2, procedure_name: "Open Reduction Internal Fixation (Femur)", procedure_type: "orthopedic", complexity: 4, priority: "urgent", specialization_required: "orthopedic", estimated_duration: 180, predicted_duration: 195, anesthesia_type: "regional", status: "scheduled", approval_status: "approved", surgeon_id: surgeonIds[3] ?? null, scheduled_start: `${today}T09:00:00Z`, scheduled_end: `${today}T12:00:00Z`, pre_op_requirements: "X-ray Femur AP/Lat, CBC, PT/APTT, Blood Type", post_op_requirements: "DVT Prophylaxis, Physio Day 2", created_by: user.id },
-    // Elective — pending approval
-    { hospital_id: hId, patient_name: "Imran Malik Siddiqui", patient_age: 52, patient_gender: "male", patient_bmi: 33.5, patient_asa_score: 3, procedure_name: "Laparoscopic Cholecystectomy", procedure_type: "general", complexity: 2, priority: "elective", specialization_required: "general", estimated_duration: 75, predicted_duration: 82, anesthesia_type: "general", status: "pending", approval_status: "pending", pre_op_requirements: "Ultrasound Abdomen, LFTs, CBC", post_op_requirements: "Same-day discharge if stable", created_by: user.id },
-    // Elective — pending
-    { hospital_id: hId, patient_name: "Nadia Pervaiz", patient_age: 45, patient_gender: "female", patient_bmi: 27.3, patient_asa_score: 2, procedure_name: "Total Knee Arthroplasty (Right)", procedure_type: "orthopedic", complexity: 3, priority: "elective", specialization_required: "orthopedic", estimated_duration: 150, predicted_duration: 162, anesthesia_type: "regional", status: "pending", approval_status: "pending", pre_op_requirements: "Knee X-ray, ECG, Blood Cross-match 2 units", post_op_requirements: "Physio Day 1, DVT Prophylaxis, Pain Management", created_by: user.id },
-    // Completed
-    { hospital_id: hId, patient_name: "Sana Farooq Awan", patient_age: 38, patient_gender: "female", patient_bmi: 22.1, patient_asa_score: 1, procedure_name: "Laparoscopic Appendectomy", procedure_type: "general", complexity: 2, priority: "elective", specialization_required: "general", estimated_duration: 60, predicted_duration: 64, actual_duration: 55, anesthesia_type: "general", status: "completed", approval_status: "approved", surgeon_id: surgeonIds[0] ?? null, pre_op_requirements: "CBC, Ultrasound", post_op_requirements: "Oral Antibiotics 5 days", created_by: user.id },
-    { hospital_id: hId, patient_name: "Bilal Ahmed Chaudhry", patient_age: 71, patient_gender: "male", patient_bmi: 29.8, patient_asa_score: 4, procedure_name: "Carotid Endarterectomy", procedure_type: "cardiac", complexity: 4, priority: "urgent", specialization_required: "cardiac", estimated_duration: 180, predicted_duration: 215, actual_duration: 200, anesthesia_type: "general", status: "completed", approval_status: "approved", surgeon_id: surgeonIds[1] ?? null, pre_op_requirements: "Duplex Carotid, CT Angio, Cardiology Clearance", post_op_requirements: "BP Monitoring q15m, Neuro Checks, ICU 24h", created_by: user.id },
-    // More pending for queue
-    { hospital_id: hId, patient_name: "Hira Nawaz", patient_age: 29, patient_gender: "female", patient_bmi: 21.5, patient_asa_score: 1, procedure_name: "Thyroidectomy (Total)", procedure_type: "general", complexity: 3, priority: "elective", specialization_required: "general", estimated_duration: 120, predicted_duration: 126, anesthesia_type: "general", status: "approved", approval_status: "approved", pre_op_requirements: "Thyroid Profile, Neck Ultrasound, Vocal Cord Assessment", post_op_requirements: "Calcium monitoring, Voice assessment", created_by: user.id },
-    { hospital_id: hId, patient_name: "Farhan Rasheed", patient_age: 63, patient_gender: "male", patient_bmi: 30.2, patient_asa_score: 3, procedure_name: "Lumbar Laminectomy L4-L5", procedure_type: "neuro", complexity: 4, priority: "urgent", specialization_required: "neuro", estimated_duration: 150, predicted_duration: 172, anesthesia_type: "general", status: "approved", approval_status: "approved", surgeon_id: surgeonIds[2] ?? null, pre_op_requirements: "MRI Lumbar Spine, EMG/NCV, Anesthesia Clearance", post_op_requirements: "Physio, Neuro assessment, Pain clinic follow-up", created_by: user.id },
-    // Approved, awaiting schedule
-    { hospital_id: hId, patient_name: "Asma Tariq", patient_age: 48, patient_gender: "female", patient_bmi: 26.0, patient_asa_score: 2, procedure_name: "Hernia Repair (Inguinal, Mesh)", procedure_type: "general", complexity: 2, priority: "elective", specialization_required: "general", estimated_duration: 90, predicted_duration: 95, anesthesia_type: "regional", status: "approved", approval_status: "approved", pre_op_requirements: "CBC, ECG", post_op_requirements: "Same day discharge, follow-up 1 week", created_by: user.id },
-    { hospital_id: hId, patient_name: "Waqas Javed Khan", patient_age: 55, patient_gender: "male", patient_bmi: 35.1, patient_asa_score: 3, procedure_name: "Hip Replacement (Left Total)", procedure_type: "orthopedic", complexity: 4, priority: "elective", specialization_required: "orthopedic", estimated_duration: 180, predicted_duration: 204, anesthesia_type: "regional", status: "pending", approval_status: "pending", pre_op_requirements: "Hip X-ray, Echo, Blood Cross-match, DVT Risk Assessment", post_op_requirements: "DVT Prophylaxis, Physio Day 1, Walker 6 weeks", created_by: user.id },
-  ];
+  const allSurgeries: Record<string, unknown>[] = [];
 
-  await supabase.from("surgeries").insert(surgeries);
+  // Helper: pick random ICD-10 procedure
+  function randomProcedure() { return faker.helpers.arrayElement(ICD10_PROCEDURES); }
 
-  // ── Create Schedule Slots for today's scheduled surgery ──
+  // --- 8 Emergencies (2 in_progress, 3 approved, 3 pending) ---
+  for (let i = 0; i < 8; i++) {
+    const proc = randomProcedure();
+    const status = i < 2 ? "in_progress" : i < 5 ? "approved" : "pending";
+    const age = faker.number.int({ min: 18, max: 85 });
+    const bmi = parseFloat(faker.number.float({ min: 18.5, max: 40, fractionDigits: 1 }).toFixed(1));
+    const asa = faker.helpers.arrayElement([3, 4, 5]);
+    const duration = proc.avgDuration + faker.number.int({ min: -20, max: 60 });
+    const predicted = Math.round(duration * (1 + proc.complexity * 0.08));
+    const scheduledStart = status === "in_progress" ? new Date(now.getTime() - faker.number.int({ min: 1, max: 4 }) * 3600000).toISOString() : undefined;
+    const scheduledEnd = scheduledStart ? new Date(new Date(scheduledStart).getTime() + duration * 60000).toISOString() : undefined;
+
+    allSurgeries.push({
+      hospital_id: hId, patient_name: pkName(), patient_age: age, patient_gender: faker.helpers.arrayElement(genders),
+      patient_bmi: bmi, patient_asa_score: asa, procedure_name: `Emergency ${proc.name}`, procedure_type: proc.category,
+      complexity: Math.min(5, proc.complexity + 1), priority: "emergency", specialization_required: proc.specialization,
+      estimated_duration: duration, predicted_duration: predicted, anesthesia_type: "general",
+      status, approval_status: status === "pending" ? "pending" : "approved",
+      surgeon_id: faker.helpers.arrayElement(surgeonIds) ?? null,
+      scheduled_start: scheduledStart, scheduled_end: scheduledEnd,
+      pre_op_requirements: proc.preOp, post_op_requirements: proc.postOp,
+      patient_comorbidities: faker.helpers.arrayElements(["Diabetes", "Hypertension", "CAD", "COPD", "Obesity", "CKD"], faker.number.int({ min: 0, max: 3 })),
+      created_by: user.id,
+      created_at: new Date(now.getTime() - faker.number.int({ min: 0, max: 6 }) * 3600000).toISOString(),
+    });
+  }
+
+  // --- 20 Urgent (5 scheduled today, 8 approved, 7 pending) ---
+  for (let i = 0; i < 20; i++) {
+    const proc = randomProcedure();
+    const status = i < 5 ? "scheduled" : i < 13 ? "approved" : "pending";
+    const age = faker.number.int({ min: 20, max: 80 });
+    const bmi = parseFloat(faker.number.float({ min: 18.5, max: 38, fractionDigits: 1 }).toFixed(1));
+    const asa = faker.helpers.arrayElement([2, 3, 4]);
+    const duration = proc.avgDuration + faker.number.int({ min: -15, max: 45 });
+    const predicted = Math.round(duration * (1 + proc.complexity * 0.06));
+    const hour = 7 + (i % 12);
+    const scheduledStart = status === "scheduled" ? `${today}T${String(hour).padStart(2, "0")}:00:00Z` : undefined;
+    const scheduledEnd = scheduledStart ? new Date(new Date(scheduledStart).getTime() + duration * 60000).toISOString() : undefined;
+
+    allSurgeries.push({
+      hospital_id: hId, patient_name: pkName(), patient_age: age, patient_gender: faker.helpers.arrayElement(genders),
+      patient_bmi: bmi, patient_asa_score: asa, procedure_name: proc.name, procedure_type: proc.category,
+      complexity: proc.complexity, priority: "urgent", specialization_required: proc.specialization,
+      estimated_duration: duration, predicted_duration: predicted, anesthesia_type: faker.helpers.arrayElement(anesthesiaTypes),
+      status, approval_status: status === "pending" ? "pending" : "approved",
+      surgeon_id: faker.helpers.arrayElement(surgeonIds) ?? null,
+      scheduled_start: scheduledStart, scheduled_end: scheduledEnd,
+      or_id: status === "scheduled" && roomIds.length > 0 ? roomIds[i % roomIds.length] : undefined,
+      pre_op_requirements: proc.preOp, post_op_requirements: proc.postOp,
+      patient_comorbidities: faker.helpers.arrayElements(["Diabetes", "Hypertension", "Asthma", "Anemia"], faker.number.int({ min: 0, max: 2 })),
+      created_by: user.id,
+      created_at: new Date(now.getTime() - faker.number.int({ min: 12, max: 96 }) * 3600000).toISOString(),
+    });
+  }
+
+  // --- 60 Elective (10 scheduled today, 15 approved, 20 pending, 15 completed) ---
+  for (let i = 0; i < 60; i++) {
+    const proc = randomProcedure();
+    let status: string;
+    if (i < 10) status = "scheduled";
+    else if (i < 25) status = "approved";
+    else if (i < 45) status = "pending";
+    else status = "completed";
+
+    const age = faker.number.int({ min: 18, max: 78 });
+    const bmi = parseFloat(faker.number.float({ min: 19, max: 36, fractionDigits: 1 }).toFixed(1));
+    const asa = faker.helpers.arrayElement([1, 2, 3]);
+    const duration = proc.avgDuration + faker.number.int({ min: -10, max: 30 });
+    const predicted = Math.round(duration * (1 + proc.complexity * 0.05));
+    const hour = 7 + (i % 12);
+    const scheduledStart = status === "scheduled" ? `${today}T${String(hour).padStart(2, "0")}:00:00Z` : undefined;
+    const scheduledEnd = scheduledStart ? new Date(new Date(scheduledStart).getTime() + duration * 60000).toISOString() : undefined;
+
+    // Completed surgeries get actual times for today
+    const actualStart = status === "completed" ? new Date(now.getTime() - faker.number.int({ min: 2, max: 10 }) * 3600000).toISOString() : undefined;
+    const actualEnd = status === "completed" ? new Date(new Date(actualStart!).getTime() + (duration + faker.number.int({ min: -10, max: 20 })) * 60000).toISOString() : undefined;
+    const actualDuration = status === "completed" ? duration + faker.number.int({ min: -12, max: 25 }) : undefined;
+
+    allSurgeries.push({
+      hospital_id: hId, patient_name: pkName(), patient_age: age, patient_gender: faker.helpers.arrayElement(genders),
+      patient_bmi: bmi, patient_asa_score: asa, procedure_name: proc.name, procedure_type: proc.category,
+      complexity: proc.complexity, priority: "elective", specialization_required: proc.specialization,
+      estimated_duration: duration, predicted_duration: predicted, actual_duration: actualDuration,
+      anesthesia_type: faker.helpers.arrayElement(anesthesiaTypes),
+      status, approval_status: status === "pending" ? "pending" : "approved",
+      surgeon_id: faker.helpers.arrayElement(surgeonIds) ?? null,
+      scheduled_start: status === "completed" ? actualStart : scheduledStart,
+      scheduled_end: status === "completed" ? actualEnd : scheduledEnd,
+      actual_start: actualStart, actual_end: actualEnd,
+      or_id: (status === "scheduled" || status === "completed") && roomIds.length > 0 ? roomIds[i % roomIds.length] : undefined,
+      pre_op_requirements: proc.preOp, post_op_requirements: proc.postOp,
+      patient_comorbidities: faker.helpers.arrayElements(["Diabetes", "Hypertension", "Asthma", "Obesity"], faker.number.int({ min: 0, max: 2 })),
+      created_by: user.id,
+      created_at: new Date(now.getTime() - faker.number.int({ min: 24, max: 720 }) * 3600000).toISOString(),
+    });
+  }
+
+  // --- 30 more completed (historical) with today's actual_end to show on charts ---
+  for (let i = 0; i < 30; i++) {
+    const proc = randomProcedure();
+    const age = faker.number.int({ min: 20, max: 75 });
+    const bmi = parseFloat(faker.number.float({ min: 19, max: 34, fractionDigits: 1 }).toFixed(1));
+    const duration = proc.avgDuration + faker.number.int({ min: -10, max: 20 });
+    const hoursAgo = faker.number.int({ min: 1, max: 14 });
+    const aStart = new Date(now.getTime() - hoursAgo * 3600000).toISOString();
+    const aEnd = new Date(new Date(aStart).getTime() + duration * 60000).toISOString();
+
+    allSurgeries.push({
+      hospital_id: hId, patient_name: pkName(), patient_age: age, patient_gender: faker.helpers.arrayElement(genders),
+      patient_bmi: bmi, patient_asa_score: faker.helpers.arrayElement([1, 2, 3]), procedure_name: proc.name,
+      procedure_type: proc.category, complexity: proc.complexity,
+      priority: faker.helpers.weightedArrayElement([{ value: "elective", weight: 6 }, { value: "urgent", weight: 3 }, { value: "emergency", weight: 1 }]),
+      specialization_required: proc.specialization, estimated_duration: duration,
+      predicted_duration: Math.round(duration * 1.05), actual_duration: duration + faker.number.int({ min: -8, max: 15 }),
+      anesthesia_type: faker.helpers.arrayElement(anesthesiaTypes),
+      status: "completed", approval_status: "approved",
+      surgeon_id: faker.helpers.arrayElement(surgeonIds) ?? null,
+      scheduled_start: aStart, scheduled_end: aEnd, actual_start: aStart, actual_end: aEnd,
+      or_id: roomIds.length > 0 ? roomIds[i % roomIds.length] : undefined,
+      pre_op_requirements: proc.preOp, post_op_requirements: proc.postOp,
+      created_by: user.id,
+      created_at: new Date(now.getTime() - faker.number.int({ min: 48, max: 720 }) * 3600000).toISOString(),
+    });
+  }
+
+  // Insert surgeries in batches of 50
+  for (let i = 0; i < allSurgeries.length; i += 50) {
+    await supabase.from("surgeries").insert(allSurgeries.slice(i, i + 50));
+  }
+
+  // ── Create Schedule Slots for today's scheduled surgeries ──
   const { data: scheduledSurgeries } = await supabase
     .from("surgeries")
-    .select("id, scheduled_start, scheduled_end")
+    .select("id, scheduled_start, scheduled_end, or_id")
     .eq("hospital_id", hId)
     .eq("status", "scheduled")
     .not("scheduled_start", "is", null);
 
-  if (scheduledSurgeries) {
-    const { data: rooms } = await supabase.from("operating_rooms").select("id").eq("hospital_id", hId).limit(1);
-    if (rooms && rooms.length > 0) {
-      for (const s of scheduledSurgeries) {
-        const start = new Date(s.scheduled_start);
-        const end = new Date(s.scheduled_end);
-        const setupStart = new Date(start.getTime() - 15 * 60000);
-        const cleanupEnd = new Date(end.getTime() + 15 * 60000);
+  if (scheduledSurgeries && roomIds.length > 0) {
+    const slotBatch: Record<string, unknown>[] = [];
+    for (const [idx, s] of scheduledSurgeries.entries()) {
+      const start = new Date(s.scheduled_start);
+      const end = new Date(s.scheduled_end);
+      const setupStart = new Date(start.getTime() - 15 * 60000);
+      const cleanupEnd = new Date(end.getTime() + 15 * 60000);
+      const orId = s.or_id ?? roomIds[idx % roomIds.length];
 
-        await supabase.from("schedule_slots").insert([
-          { surgery_id: s.id, or_id: rooms[0].id, start_time: setupStart.toISOString(), end_time: start.toISOString(), slot_type: "setup" },
-          { surgery_id: s.id, or_id: rooms[0].id, start_time: start.toISOString(), end_time: end.toISOString(), slot_type: "surgery" },
-          { surgery_id: s.id, or_id: rooms[0].id, start_time: end.toISOString(), end_time: cleanupEnd.toISOString(), slot_type: "cleanup" },
-        ]);
-      }
+      slotBatch.push(
+        { surgery_id: s.id, or_id: orId, start_time: setupStart.toISOString(), end_time: start.toISOString(), slot_type: "setup" },
+        { surgery_id: s.id, or_id: orId, start_time: start.toISOString(), end_time: end.toISOString(), slot_type: "surgery" },
+        { surgery_id: s.id, or_id: orId, start_time: end.toISOString(), end_time: cleanupEnd.toISOString(), slot_type: "cleanup" },
+      );
+    }
+    for (let i = 0; i < slotBatch.length; i += 50) {
+      await supabase.from("schedule_slots").insert(slotBatch.slice(i, i + 50));
     }
   }
 
-  // ── Create Notifications (diverse types) ──
-  await supabase.from("notifications").insert([
-    { hospital_id: hId, title: "EMERGENCY: Cardiac Case", message: "Emergency CABG for Zara Sheikh — cardiac arrest risk, immediate OR required", type: "emergency", category: "emergency" },
-    { hospital_id: hId, title: "Emergency Appendectomy", message: "Perforated appendix — Kamran Iqbal needs OR within 2 hours. Auto-escalated to emergency priority.", type: "emergency", category: "emergency" },
-    { hospital_id: hId, title: "Equipment Sterilization Alert", message: "Neuronavigation System and Electrocautery Unit undergoing sterilization — unavailable for 3 hours", type: "warning", category: "equipment" },
-    { hospital_id: hId, title: "Power Drill Maintenance", message: "Stryker Power Drill reached 95% of maintenance threshold (95/100 uses). Scheduled for maintenance.", type: "warning", category: "equipment" },
-    { hospital_id: hId, title: "Surgery Scheduled", message: "ORIF Femur for Ali Hassan scheduled in OR-1 General A at 09:00 today", type: "info", category: "schedule" },
-    { hospital_id: hId, title: "Craniotomy Pending Schedule", message: "Craniotomy for Maryam Noor approved — awaiting OR slot assignment in Neuro OR", type: "info", category: "schedule" },
-    { hospital_id: hId, title: "Dr. Shah Available", message: "Dr. Hassan Ali Shah completed morning rounds, available for afternoon surgeries starting 14:00", type: "success", category: "staff" },
-    { hospital_id: hId, title: "OR-6 Under Maintenance", message: "ENT/Ophthalmic OR-6 is blocked for scheduled HVAC maintenance until tomorrow", type: "warning", category: "schedule" },
-    { hospital_id: hId, title: "Pending Approvals", message: "3 surgery requests awaiting approval: Cholecystectomy, Knee Arthroplasty, Hip Replacement", type: "info", category: "schedule" },
-    { hospital_id: hId, title: "Staff Fatigue Alert", message: "Prof. Dr. Ahmed Khan approaching 10h shift limit — consider reassignment for afternoon cases", type: "warning", category: "staff" },
-  ]);
+  // ── Create 50 Notifications (diverse, realistic) ──
+  const notifTypes = ["info", "warning", "emergency", "success", "error"] as const;
+  const notifCategories = ["schedule", "equipment", "emergency", "staff"] as const;
+  const notifTemplates = [
+    { title: "EMERGENCY: Cardiac Case", message: "Emergency CABG required — cardiac arrest risk, immediate OR needed", type: "emergency", category: "emergency" },
+    { title: "Emergency Appendectomy", message: "Perforated appendix needs OR within 2 hours. Auto-escalated.", type: "emergency", category: "emergency" },
+    { title: "Equipment Sterilization Alert", message: "Neuronavigation System undergoing sterilization — unavailable for 3 hours", type: "warning", category: "equipment" },
+    { title: "Equipment Maintenance Due", message: "Surgical instrument set approaching maintenance threshold", type: "warning", category: "equipment" },
+    { title: "Surgery Scheduled", message: "Surgery scheduled successfully for today", type: "info", category: "schedule" },
+    { title: "Surgery Completed", message: "Procedure completed successfully, patient in recovery", type: "success", category: "schedule" },
+    { title: "Pending Approval", message: "New surgery request awaiting admin approval", type: "info", category: "schedule" },
+    { title: "Staff Fatigue Alert", message: "Surgeon approaching shift limit — consider reassignment", type: "warning", category: "staff" },
+    { title: "OR Maintenance", message: "Operating room blocked for scheduled maintenance", type: "warning", category: "schedule" },
+    { title: "Staff Available", message: "Doctor completed morning rounds, available for afternoon cases", type: "success", category: "staff" },
+  ];
+
+  const notifData: Record<string, unknown>[] = [];
+  for (let i = 0; i < 50; i++) {
+    const template = faker.helpers.arrayElement(notifTemplates);
+    notifData.push({
+      hospital_id: hId,
+      title: template.title,
+      message: template.message + ` [${faker.string.alphanumeric(4).toUpperCase()}]`,
+      type: template.type,
+      category: template.category,
+      is_read: faker.datatype.boolean(0.4),
+      created_at: new Date(now.getTime() - faker.number.int({ min: 0, max: 168 }) * 3600000).toISOString(),
+    });
+  }
+  await supabase.from("notifications").insert(notifData);
 
   revalidatePath("/dashboard");
   revalidatePath("/surgeries");

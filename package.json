@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@faker-js/faker": "^10.3.0",
     "@hello-pangea/dnd": "^18.0.1",
     "@simplewebauthn/browser": "^13.2.2",
     "@simplewebauthn/server": "^13.2.2",
