@@ -10,6 +10,27 @@ import type {
   Notification, ScheduleSlot, DashboardStats, Hospital,
 } from "@/lib/types";
 
+// ── User Profile & Role ────────────────────────────────────
+export async function getUserProfile() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .single();
+
+  return {
+    id: user.id,
+    email: user.email ?? "",
+    fullName: profile?.full_name ?? user.user_metadata?.full_name ?? "",
+    role: (profile?.role ?? user.user_metadata?.role ?? "scheduler") as string,
+    hospital: profile?.hospital ?? user.user_metadata?.hospital ?? "",
+  };
+}
+
 // ── Hospitals ──────────────────────────────────────────────
 export async function getHospitals(): Promise<Hospital[]> {
   const supabase = await createClient();

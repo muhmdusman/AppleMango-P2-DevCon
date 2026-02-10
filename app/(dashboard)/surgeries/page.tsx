@@ -1,6 +1,6 @@
 /* Surgeries Page — CRUD, filtering, approval workflow */
 import { Suspense } from "react";
-import { getDefaultHospitalId, getSurgeries, getStaff } from "@/lib/data";
+import { getDefaultHospitalId, getSurgeries, getStaff, getUserProfile } from "@/lib/data";
 import { SurgeryList } from "@/components/surgeries/surgery-list";
 import { redirect } from "next/navigation";
 
@@ -15,7 +15,7 @@ export default async function SurgeriesPage({
   const params = await searchParams;
   const page = parseInt(params.page ?? "1");
 
-  const [surgeriesRes, surgeons] = await Promise.all([
+  const [surgeriesRes, surgeons, profile] = await Promise.all([
     getSurgeries(hospitalId, {
       status: params.status,
       priority: params.priority,
@@ -24,7 +24,10 @@ export default async function SurgeriesPage({
       pageSize: 20,
     }),
     getStaff(hospitalId, "surgeon"),
+    getUserProfile(),
   ]);
+
+  const userRole = profile?.role ?? "scheduler";
 
   return (
     <div className="space-y-6">
@@ -40,6 +43,7 @@ export default async function SurgeriesPage({
           hospitalId={hospitalId}
           surgeons={surgeons}
           filters={params}
+          userRole={userRole}
         />
       </Suspense>
     </div>

@@ -21,9 +21,13 @@ import Link from "next/link";
 export function DashboardHeader({
   userEmail,
   notificationCount = 0,
+  userRole = "surgeon",
+  userName = "",
 }: {
   userEmail?: string;
   notificationCount?: number;
+  userRole?: string;
+  userName?: string;
 }) {
   const [online, setOnline] = useState(true);
 
@@ -40,7 +44,19 @@ export function DashboardHeader({
     };
   }, []);
 
-  const initials = userEmail ? userEmail.slice(0, 2).toUpperCase() : "U";
+  const initials = userName
+    ? userName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
+    : userEmail
+      ? userEmail.slice(0, 2).toUpperCase()
+      : "U";
+
+  const roleLabels: Record<string, string> = {
+    admin: "Admin",
+    manager: "OR Manager",
+    surgeon: "Surgeon",
+    scheduler: "Scheduler",
+    nurse: "Nurse",
+  };
 
   return (
     <header className="flex h-16 items-center justify-between border-b border-border bg-card px-6">
@@ -86,10 +102,14 @@ export function DashboardHeader({
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem className="text-xs text-muted-foreground" disabled>
-              {userEmail}
-            </DropdownMenuItem>
+          <DropdownMenuContent align="end" className="w-56">
+            <div className="px-2 py-1.5">
+              <p className="text-sm font-medium">{userName || "User"}</p>
+              <p className="text-xs text-muted-foreground">{userEmail}</p>
+              <Badge variant="secondary" className="mt-1 text-[10px]">
+                {roleLabels[userRole] ?? userRole}
+              </Badge>
+            </div>
             <DropdownMenuItem asChild>
               <Link href="/settings">Settings</Link>
             </DropdownMenuItem>
