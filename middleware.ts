@@ -1,8 +1,13 @@
 import { updateSession } from "@/lib/supabase/middleware"
-import { type NextRequest } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 
 export async function middleware(request: NextRequest) {
-  return await updateSession(request)
+  // 🔓 DEV MODE: Skip auth completely
+  // Comment this out to re-enable authentication
+  return NextResponse.next()
+  
+  // 🔐 PRODUCTION: Uncomment the line below to enable auth
+  // return await updateSession(request)
 }
 
 export const config = {

@@ -7,13 +7,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { predictSurgeryDuration } from "@/lib/ai";
+import { getAuthUser } from "@/lib/auth/getAuthUser";
 
 // ── Surgery CRUD ──────────────────────────────────────────
 
 export async function createSurgery(formData: FormData) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { user } = await getAuthUser();
   if (!user) return { error: "Unauthorized" };
+
+  const supabase = await createClient();
 
   const complexity = parseInt(formData.get("complexity") as string) || 3;
   const estimatedDuration = parseInt(formData.get("estimated_duration") as string) || 60;
@@ -58,9 +60,10 @@ export async function createSurgery(formData: FormData) {
 }
 
 export async function updateSurgeryStatus(id: string, status: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { user } = await getAuthUser();
   if (!user) return { error: "Unauthorized" };
+
+  const supabase = await createClient();
 
   const { error } = await supabase
     .from("surgeries")
@@ -74,9 +77,10 @@ export async function updateSurgeryStatus(id: string, status: string) {
 }
 
 export async function approveSurgery(id: string, approved: boolean) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { user } = await getAuthUser();
   if (!user) return { error: "Unauthorized" };
+
+  const supabase = await createClient();
 
   const { error } = await supabase
     .from("surgeries")
@@ -101,9 +105,10 @@ export async function scheduleSurgery(
   startTime: string,
   endTime: string
 ) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { user } = await getAuthUser();
   if (!user) return { error: "Unauthorized" };
+
+  const supabase = await createClient();
 
   // Update surgery record
   const { error: surgeryError } = await supabase
@@ -142,9 +147,10 @@ export async function scheduleSurgery(
 // ── Equipment Management ──────────────────────────────────
 
 export async function updateEquipmentStatus(id: string, status: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { user } = await getAuthUser();
   if (!user) return { error: "Unauthorized" };
+
+  const supabase = await createClient();
 
   const updateData: Record<string, unknown> = { status };
   if (status === "available") {
@@ -159,9 +165,10 @@ export async function updateEquipmentStatus(id: string, status: string) {
 }
 
 export async function createEquipment(formData: FormData) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { user } = await getAuthUser();
   if (!user) return { error: "Unauthorized" };
+
+  const supabase = await createClient();
 
   const { error } = await supabase.from("equipment").insert({
     hospital_id: formData.get("hospital_id"),
@@ -204,9 +211,10 @@ export async function markAllNotificationsRead(hospitalId: string) {
 // ── Seed Demo Data ────────────────────────────────────────
 
 export async function seedDemoData() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { user } = await getAuthUser();
   if (!user) return { error: "Unauthorized" };
+
+  const supabase = await createClient();
 
   // Check if hospital already exists
   const { data: existing } = await supabase.from("hospitals").select("id").limit(1);

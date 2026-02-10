@@ -2,6 +2,14 @@ import { createServerClient } from "@supabase/ssr"
 import { type NextRequest, NextResponse } from "next/server"
 
 export async function updateSession(request: NextRequest) {
+  // 🔓 DEV BYPASS - Skip all auth checks in development
+  if (
+    process.env.NODE_ENV === 'development' &&
+    process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH === 'true'
+  ) {
+    return NextResponse.next({ request })
+  }
+
   let response = NextResponse.next({ request })
 
   const supabase = createServerClient(
