@@ -73,7 +73,7 @@ npm run dev
 - [x] Comprehensive surgery request management
 - [x] Intelligent constraint satisfaction scheduler
 - [x] Priority queue system with dynamic reordering
-- [x] Interactive drag-and-drop calendar interface (Gantt chart)
+- [x] Interactive drag-and-drop calendar interface (DnD React js)
 - [x] Equipment & resource management
 - [x] Real-time notification & alert system (WebSocket)
 - [x] Advanced search, filtering & pagination
@@ -112,7 +112,7 @@ npm run dev
 
 ---
 
-## Admin / Test User Credentials (for Judges)
+## Admin / Test User Credentials 
 
 | Role            | Email                        | Password        |
 | --------------- | ---------------------------- | --------------- |
