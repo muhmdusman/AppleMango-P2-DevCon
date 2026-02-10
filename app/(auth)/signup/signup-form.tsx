@@ -64,8 +64,7 @@ export default function SignupForm() {
 
         if (data.user) {
           setSignedUp(true)
-          router.push("/dashboard")
-          router.refresh()
+          // Don't redirect yet — let user register biometric first
         }
       } catch {
         setError("Registration failed. Please try again.")
@@ -110,12 +109,61 @@ export default function SignupForm() {
       }
 
       setError("")
-      alert("Biometric credential registered successfully! You can now sign in with your fingerprint or face.")
+      alert("Biometric registered! Redirecting to dashboard...")
+      goToDashboard()
     } catch {
       setError("Biometric registration failed. You can set it up later in settings.")
     } finally {
       setBiometricLoading(false)
     }
+  }
+
+  function goToDashboard() {
+    router.push("/dashboard")
+    router.refresh()
+  }
+
+  // After signup: show biometric registration step
+  if (signedUp) {
+    return (
+      <div className="w-full max-w-[400px] rounded-[40px] border-[5px] border-white bg-gradient-to-b from-white to-[#f4f7fb] p-8 shadow-[rgba(133,189,215,0.88)_0px_30px_30px_-20px]">
+        <div className="mb-2 text-center">
+          <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+            <svg className="h-8 w-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+          </div>
+          <h1 className="text-2xl font-black text-[#1089d3]">Account Created!</h1>
+          <p className="mt-2 text-sm text-[#aaa]">Set up biometric login for faster access</p>
+        </div>
+
+        {error && (
+          <div className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
+            {error}
+          </div>
+        )}
+
+        <div className="mt-6 space-y-4">
+          <button
+            type="button"
+            onClick={handleBiometricRegister}
+            disabled={biometricLoading}
+            className="w-full rounded-[20px] bg-gradient-to-r from-[#1089d3] to-[#12b1d1] py-4 font-bold text-white shadow-[rgba(133,189,215,0.88)_0px_20px_10px_-15px] transition-all hover:scale-[1.03] hover:shadow-[rgba(133,189,215,0.88)_0px_23px_10px_-20px] active:scale-95 disabled:opacity-60"
+          >
+            <span className="flex items-center justify-center gap-2">
+              <Fingerprint className="h-5 w-5" />
+              {biometricLoading ? "Registering..." : "Register Fingerprint / Face ID"}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={goToDashboard}
+            className="w-full rounded-[20px] border-2 border-[#e2e8f0] bg-white py-3 text-sm font-semibold text-[#6b7280] transition-all hover:bg-[#f4f7fb]"
+          >
+            Skip for now
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -203,23 +251,6 @@ export default function SignupForm() {
           {isPending ? "Creating Account..." : "Sign Up"}
         </button>
       </form>
-
-      {/* Biometric Register */}
-      <div className="mt-6">
-        <span className="block text-center text-xs text-[#aaa]">
-          Register biometric credential (optional)
-        </span>
-
-        <button
-          type="button"
-          onClick={handleBiometricRegister}
-          disabled={biometricLoading}
-          className="mx-auto mt-3 flex items-center justify-center gap-2 rounded-[20px] bg-gradient-to-r from-[#1089d3] to-[#12b1d1] px-6 py-3 text-sm font-semibold text-white shadow-[rgba(133,189,215,0.88)_0px_12px_10px_-8px] transition-all hover:scale-[1.03] active:scale-95 disabled:opacity-60"
-        >
-          <Fingerprint className="h-5 w-5" />
-          {biometricLoading ? "Registering..." : "Register Fingerprint / Face ID"}
-        </button>
-      </div>
 
       {/* Footer */}
       <p className="mt-6 text-center text-sm text-[#aaa]">

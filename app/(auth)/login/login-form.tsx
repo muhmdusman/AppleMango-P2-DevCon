@@ -189,17 +189,25 @@ export default function LoginForm() {
         <span className="block text-center text-xs text-[#aaa]">
           Or sign in with biometrics
         </span>
+        <p className="mt-1 text-center text-[10px] text-[#ccc]">
+          Register during sign up or in settings
+        </p>
 
         {/* Biometric Button */}
         <button
           type="button"
           onClick={handleBiometric}
-          disabled={biometricLoading}
+          disabled={biometricLoading || !email}
           className="mx-auto mt-3 flex items-center justify-center gap-2 rounded-[20px] bg-gradient-to-r from-[#1089d3] to-[#12b1d1] px-6 py-3 text-sm font-semibold text-white shadow-[rgba(133,189,215,0.88)_0px_12px_10px_-8px] transition-all hover:scale-[1.03] active:scale-95 disabled:opacity-60"
         >
           <Fingerprint className="h-5 w-5" />
           {biometricLoading ? "Authenticating..." : "Fingerprint / Face ID"}
         </button>
+        {!email && (
+          <p className="mt-2 text-center text-[10px] text-orange-400">
+            Enter your email above to use biometric login
+          </p>
+        )}
       </div>
 
       {/* Footer */}

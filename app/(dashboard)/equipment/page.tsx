@@ -1,14 +1,21 @@
-import type { Metadata } from "next"
+/* Equipment Management — inventory, sterilization, maintenance */
+import { getDefaultHospitalId, getEquipment } from "@/lib/data";
+import { redirect } from "next/navigation";
+import { EquipmentList } from "@/components/equipment/equipment-list";
 
-export const metadata: Metadata = {
-  title: "Equipment — MedScheduler",
-  description: "Equipment and resource management",
-}
+export default async function EquipmentPage() {
+  const hospitalId = await getDefaultHospitalId();
+  if (!hospitalId) redirect("/dashboard");
 
-export default function EquipmentPage() {
+  const equipment = await getEquipment(hospitalId);
+
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <h1 className="text-2xl font-bold text-[#1089d3]">Equipment — Coming Soon</h1>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Equipment</h1>
+        <p className="text-sm text-muted-foreground">Track equipment inventory, sterilization, and maintenance</p>
+      </div>
+      <EquipmentList equipment={equipment} hospitalId={hospitalId} />
     </div>
-  )
+  );
 }
